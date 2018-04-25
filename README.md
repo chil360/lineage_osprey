@@ -48,6 +48,10 @@ OR, for those with limited bandwidth/storage:
 
     repo sync -c -f --no-clone-bundle --no-tags --force-sync --optimized-fetch --prune
 
+Additional commits from the LineageOS gerrit are currently required to fix the camcorder. Copy 'cherrypick.sh' to the root of your build directory an and run the script. This must be done after each time you resync your sources.
+
+    ./cherryick.sh
+
 Now start the build...
 
 ```bash
