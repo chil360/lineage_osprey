@@ -21,7 +21,7 @@ What's not working?
 Download
 --------
 
-My current builds are available [here](https://mega.nz/#F!3F9CTSrQ!ZBLcFw1Mh_47FdxiZ2LYyg).
+My current builds are available [here](https://mega.nz/#F!3F9CTSrQ!ZBLcFw1Mh_47FdxiZ2LYyg!uYlmhBKT).
 
 Build Instructions
 ------------------
