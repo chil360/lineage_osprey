@@ -14,9 +14,7 @@ What's working?
  - Storage
  - 4G
  - VoLTE
-
-What's not working?
- - Selinux Enforcing
+ - Selinux Enforcing (Thanks @MatiHalperin)
 
 Download
 --------
