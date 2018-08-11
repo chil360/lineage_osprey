@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
 
-	<project name="chil360/android_device_motorola_osprey" path="device/motorola/osprey" remote="github" revision="lineage-15.1" />
-	<project name="chil360/android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="github" revision="lineage-15.1" />
+	<project name="chil360/android_device_motorola_osprey" path="device/motorola/osprey" remote="github" revision="lineage-16.0" />
+	<project name="chil360/android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="github" revision="lineage-16.0" />
 	<project name="chil360/android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="github" revision="8.1.x" />
 	<project name="chil360/proprietary_vendor_motorola" path="vendor/motorola" remote="github" revision="lineage-15.1" />
 

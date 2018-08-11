@@ -1,25 +1,19 @@
 
-Lineage 15.1 for Osprey
+Lineage 16.0 for Osprey
 =======================
 
 Current Status
 --------------
 
 What's working?
- - Bluetooth
- - Camera
- - Camcorder
- - RIL
- - WiFi
- - Storage
- - 4G
- - VoLTE
- - Selinux Enforcing (Thanks @MatiHalperin)
+ - Nothing!
+
+Currently in the very early stages of development, trying to get Lineage 16 to build.
 
 Download
 --------
 
-My current builds are available [here](https://mega.nz/#F!3F9CTSrQ!ZBLcFw1Mh_47FdxiZ2LYyg!uYlmhBKT).
+No builds available at the current time.
 
 Build Instructions
 ------------------
@@ -30,7 +24,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b lineage-15.1
+    repo init -u git://github.com/LineageOS/android.git -b lineage-16.0
 
 Now create a local_manifests directory
 
