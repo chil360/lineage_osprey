@@ -10,6 +10,6 @@
 	<project name="LineageOS/android_packages_resources_devicesettings" path="packages/resources/devicesettings" remote="github" revision="lineage-15.1" />
 	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-15.1" />
 
-	<!-- Linaro 7.2 Kernel Toolchain -->
-	<project name="Subinsmani/prebuilts_gcc_linux-x86_arm_arm-eabi-7.2" path="prebuilts/gcc/linux-x86/arm/arm-eabi-7.2" remote="github" revision="master" />
+	<!-- Linaro 7.3 kernel toolchain -->
+	<project name="dev-harsh1998/GCC_BUILDS" path="prebuilts/gcc/linux-x86/arm/arm-eabi-7.3" remote="github" revision="master" />
 </manifest>
