@@ -24,7 +24,7 @@ Currently in the very early stages of development, trying to get Lineage 16 to b
 Download
 --------
 
-No builds available at the current time.
+My current builds are available [here](https://mega.nz/#F!3F9CTSrQ!ZBLcFw1Mh_47FdxiZ2LYyg!uYlmhBKT).
 
 Build Instructions
 ------------------
