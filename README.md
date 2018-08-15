@@ -6,7 +6,18 @@ Current Status
 --------------
 
 What's working?
- - Nothing!
+ - It boots!
+ - RIL
+ - Mobile data
+ - Wifi
+ - Bluetooth
+ - GPS
+
+What's not working?
+ - Camera
+ - Camcorder
+ - Volte
+ - Probably more!
 
 Currently in the very early stages of development, trying to get Lineage 16 to build.
 
@@ -39,6 +50,8 @@ Then to sync up:
 OR, for those with limited bandwidth/storage:
 
     repo sync -c -f --no-clone-bundle --no-tags --force-sync --optimized-fetch --prune
+
+Currently I a use a few patches for development reasons and to fix a couple of compile issues. Copy patch.sh and the .patch files from this repo to the root of your build folder. Then run the patch.sh script to apply.
 
 Now start the build...
 

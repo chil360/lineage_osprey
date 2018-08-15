@@ -1,0 +1,26 @@
+From 8cfd4fd9d34d1ffd028f73e30c691c55906be5d7 Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Mon, 13 Aug 2018 15:01:49 +0100
+Subject: [PATCH] [DNM] libqsap_sdk: Suppress warnings
+
+Change-Id: Iee3e1ea797ff5662d250393e5d3b8abda61be249
+---
+ softap/sdk/Android.mk | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/softap/sdk/Android.mk b/softap/sdk/Android.mk
+index d81e50b..45f9da0 100755
+--- a/softap/sdk/Android.mk
++++ b/softap/sdk/Android.mk
+@@ -10,7 +10,7 @@ LOCAL_MODULE:= libqsap_sdk
+ 
+ LOCAL_MODULE_TAGS := optional
+ 
+-LOCAL_CFLAGS += -DSDK_VERSION=\"0.0.1.0\"
++LOCAL_CFLAGS += -DSDK_VERSION=\"0.0.1.0\" -Wno-error
+ 
+ LOCAL_USE_VNDK := true
+ 
+-- 
+2.18.0
+
