@@ -15,10 +15,9 @@ cd system/qcom
 git am -3 ../../0001-DNM-libqsap_sdk-Suppress-warnings.patch
 cd $TOP
 
-cd hardware/qcom/fm
-git am -3 ../../../0001-DNM-libfm_jni-Suppress-warnings.patch
+cd device/motorola/msm8916-common
+git am -3 ../../../0001-DO-NOT-MERGE-msm8916-common-Force-battery-led-off.patch
 cd $TOP
-
 
 #############################################################
 # CHERRYPICKS                                               #

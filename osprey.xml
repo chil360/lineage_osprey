@@ -15,7 +15,7 @@
 
 	<!-- LOS Staging repos -->
        <remove-project path="build/make" name="LineageOS/android_build" groups="pdk"/>
-       <project path="build/make" name="LineageOS/android_build" groups="pdk" revision="refs/changes/09/222809/16" >
+       <project path="build/make" name="LineageOS/android_build" groups="pdk" revision="refs/changes/09/222809/18" >
            <copyfile src="core/root.mk" dest="Makefile" />
            <linkfile src="CleanSpec.mk" dest="build/CleanSpec.mk" />
            <linkfile src="buildspec.mk.default" dest="build/buildspec.mk.default" />
@@ -26,7 +26,7 @@
        </project>
 
       <remove-project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" />
-      <project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" revision="refs/changes/82/222682/3" >
+      <project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" revision="refs/changes/82/222682/5" >
           <linkfile src="root.bp" dest="Android.bp" />
           <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
       </project>
@@ -35,7 +35,7 @@
       <project path="art" name="LineageOS/android_art" groups="pdk" revision="refs/changes/68/223068/1" />
 
       <remove-project path="bionic" name="LineageOS/android_bionic" groups="pdk" />
-      <project path="bionic" name="LineageOS/android_bionic" groups="pdk" revision="refs/changes/12/223412/4" />
+      <project path="bionic" name="LineageOS/android_bionic" groups="pdk" revision="refs/changes/12/223412/6" />
 
       <remove-project path="bootable/recovery" name="LineageOS/android_bootable_recovery" groups="pdk" />
       <project path="bootable/recovery" name="LineageOS/android_bootable_recovery" groups="pdk" revision="refs/changes/98/222998/2" />
@@ -47,7 +47,7 @@
       <project path="external/tinycompress" name="LineageOS/android_external_tinycompress" groups="pdk" revision="refs/changes/16/223016/1" />
 
       <remove-project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" />
-      <project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" revision="refs/changes/84/224184/1" />
+      <project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" revision="refs/changes/84/224184/2" />
 
       <remove-project path="frameworks/base" name="LineageOS/android_frameworks_base" groups="pdk-cw-fs,pdk-fs" />
       <project path="frameworks/base" name="LineageOS/android_frameworks_base" groups="pdk-cw-fs,pdk-fs" revision="refs/changes/17/224217/1" />
@@ -74,7 +74,7 @@
       <project path="system/bt" name="LineageOS/android_system_bt" groups="pdk" revision="refs/changes/45/223945/1" />
 
       <remove-project path="system/core" name="LineageOS/android_system_core" groups="pdk" />
-      <project path="system/core" name="LineageOS/android_system_core" groups="pdk" revision="refs/changes/62/223162/5" />
+      <project path="system/core" name="LineageOS/android_system_core" groups="pdk" revision="refs/changes/00/223500/5" />
 
       <remove-project path="system/sepolicy" name="LineageOS/android_system_sepolicy" groups="pdk" />
       <project path="system/sepolicy" name="LineageOS/android_system_sepolicy" groups="pdk" revision="refs/changes/48/223748/3" />
@@ -82,7 +82,7 @@
       <project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" revision="refs/changes/49/223149/3" />
 
       <remove-project path="vendor/lineage" name="LineageOS/android_vendor_lineage" />
-      <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" revision="refs/changes/83/223383/4" />
+      <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" revision="refs/changes/83/223383/7" />
 
       <project path="hardware/qcom/audio-caf/msm8916" name="LineageOS/android_hardware_qcom_audio" groups="qcom,qcom_audio,pdk" revision="refs/changes/22/223522/1" />
       <project path="hardware/qcom/display-caf/msm8916" name="LineageOS/android_hardware_qcom_display" groups="pdk,qcom,qcom_display" revision="refs/changes/45/223445/2" />
@@ -96,7 +96,7 @@
       <project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" remote="aosp" revision="master" />
   
       <project path="packages/apps/Eleven" name="LineageOS/android_packages_apps_Eleven" revision="refs/changes/71/223671/1" />
-      <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" revision="refs/changes/88/223688/4" />
+      <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" revision="refs/changes/86/224386/1" />
       <project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" revision="refs/changes/77/223677/1" />
       <project path="packages/apps/Jelly" name="LineageOS/android_packages_apps_Jelly" revision="refs/changes/70/223670/1" />
 
