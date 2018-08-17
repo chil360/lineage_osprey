@@ -26,7 +26,7 @@
        </project>
 
       <remove-project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" />
-      <project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" revision="refs/changes/82/222682/5" >
+      <project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" revision="refs/changes/82/222682/6" >
           <linkfile src="root.bp" dest="Android.bp" />
           <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
       </project>
@@ -47,7 +47,7 @@
       <project path="external/tinycompress" name="LineageOS/android_external_tinycompress" groups="pdk" revision="refs/changes/16/223016/1" />
 
       <remove-project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" />
-      <project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" revision="refs/changes/84/224184/2" />
+      <project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" revision="refs/changes/84/224184/3" />
 
       <remove-project path="frameworks/base" name="LineageOS/android_frameworks_base" groups="pdk-cw-fs,pdk-fs" />
       <project path="frameworks/base" name="LineageOS/android_frameworks_base" groups="pdk-cw-fs,pdk-fs" revision="refs/changes/17/224217/1" />
@@ -82,14 +82,14 @@
       <project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" revision="refs/changes/49/223149/3" />
 
       <remove-project path="vendor/lineage" name="LineageOS/android_vendor_lineage" />
-      <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" revision="refs/changes/83/223383/7" />
+      <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" revision="refs/changes/21/224021/3" />
 
       <project path="hardware/qcom/audio-caf/msm8916" name="LineageOS/android_hardware_qcom_audio" groups="qcom,qcom_audio,pdk" revision="refs/changes/22/223522/1" />
       <project path="hardware/qcom/display-caf/msm8916" name="LineageOS/android_hardware_qcom_display" groups="pdk,qcom,qcom_display" revision="refs/changes/45/223445/2" />
       <project path="hardware/qcom/media-caf/msm8916" name="LineageOS/android_hardware_qcom_media" groups="qcom,pdk" revision="refs/changes/42/223442/1" />
       <project path="hardware/qcom/power" name="LineageOS/android_hardware_qcom_power" groups="qcom,pdk" revision="refs/changes/92/223892/1" />
       <project path="vendor/nxp/interfaces" name="LineageOS/android_vendor_nxp_interfaces_opensource_nfc" revision="lineage-15.1" />
-      <project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" revision="lineage-15.1" />
+      <project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" revision="lineage-16.0" />
       <project path="system/qcom" name="LineageOS/android_system_qcom" groups="qcom" remote="github" revision="lineage-15.1" />
 
       <remove-project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" />

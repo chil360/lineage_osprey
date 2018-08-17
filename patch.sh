@@ -19,6 +19,10 @@ cd device/motorola/msm8916-common
 git am -3 ../../../0001-DO-NOT-MERGE-msm8916-common-Force-battery-led-off.patch
 cd $TOP
 
+cd frameworks/native
+git am -3 ../../0001-Gralloc2-Allow-invalid-usage-bits.patch
+cd $TOP
+
 #############################################################
 # CHERRYPICKS                                               #
 #############################################################
