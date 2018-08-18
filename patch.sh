@@ -23,6 +23,10 @@ cd frameworks/native
 git am -3 ../../0001-Gralloc2-Allow-invalid-usage-bits.patch
 cd $TOP
 
+cd frameworks/av
+git am -3 ../../0001-DNM-HAL1-Hack-disable-UID-active-check.patch
+cd $TOP
+
 #############################################################
 # CHERRYPICKS                                               #
 #############################################################
