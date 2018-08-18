@@ -12,14 +12,13 @@ What's working?
  - Wifi
  - Bluetooth
  - GPS
+ - Camera (apart from HDR)
+ - Camcorder
 
 What's not working?
- - Camera
- - Camcorder
+ - Camera HDR
  - Volte
  - Probably more!
-
-Currently in the very early stages of development, trying to get Lineage 16 to build.
 
 Download
 --------
