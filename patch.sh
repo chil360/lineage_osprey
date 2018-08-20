@@ -8,7 +8,6 @@ TOP=${PWD}
 
 cd vendor/lineage
 git am -3 ../../0001-DNM-Allow-insecure-ADB.patch
-git am -3 ../../0001-DNM-Use-AOSP-qcom-wlan.patch
 cd $TOP
 
 cd system/qcom
