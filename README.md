@@ -36,7 +36,7 @@ Initialize your local repository using the LineageOS trees, use a command like t
 
     repo init -u git://github.com/LineageOS/android.git -b lineage-16.0
 
-Create 'local_manifests' repo and copy my local manifest 'osprey.xml' to the 'local_manifests' directory
+Create 'local_manifests' folder and copy my local manifest 'osprey.xml' to the 'local_manifests' directory
 by just ctrl+c and ctrl+v this:
 ```
 curl --create-dirs -L -o .repo/local_manifests/local_manifest.xml -O -L https://raw.githubusercontent.com/chil360/lineage_osprey/lineage-16.0/osprey.xml
