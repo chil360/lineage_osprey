@@ -40,7 +40,7 @@ Create 'local_manifests' folder and copy my local manifest 'osprey.xml' to the '
 just ctrl+c and ctrl+v this:
 ```
 curl --create-dirs -L -o .repo/local_manifests/local_manifest.xml -O -L https://raw.githubusercontent.com/chil360/lineage_osprey/lineage-16.0/osprey.xml
-
+```
 Then to sync up:
 
     repo sync -c -f --force-sync
