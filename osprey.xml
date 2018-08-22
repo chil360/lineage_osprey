@@ -14,89 +14,24 @@
 	<project name="dev-harsh1998/GCC_BUILDS" path="prebuilts/gcc/linux-x86/arm/arm-eabi-7.3" remote="github" revision="master" />
 
 	<!-- LOS Staging repos -->
-       <remove-project path="build/make" name="LineageOS/android_build" groups="pdk"/>
-       <project path="build/make" name="LineageOS/android_build" groups="pdk" revision="refs/changes/09/222809/18" >
-           <copyfile src="core/root.mk" dest="Makefile" />
-           <linkfile src="CleanSpec.mk" dest="build/CleanSpec.mk" />
-           <linkfile src="buildspec.mk.default" dest="build/buildspec.mk.default" />
-           <linkfile src="core" dest="build/core" />
-           <linkfile src="envsetup.sh" dest="build/envsetup.sh" />
-           <linkfile src="target" dest="build/target" />
-           <linkfile src="tools" dest="build/tools" />
-       </project>
+        <remove-project path="frameworks/compile/mclinker" name="platform/frameworks/compile/mclinker" groups="pdk" />
+        <project path="frameworks/compile/mclinker" name="LineageOS/android_frameworks_compile_mclinker" groups="pdk" />
 
-      <remove-project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" />
-      <project path="build/soong" name="LineageOS/android_build_soong" groups="pdk,tradefed" revision="refs/changes/82/222682/7" >
-          <linkfile src="root.bp" dest="Android.bp" />
-          <linkfile src="bootstrap.bash" dest="bootstrap.bash" />
-      </project>
+        <project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" />
+        <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" />
+        <project path="hardware/qcom/power" name="LineageOS/android_hardware_qcom_power" groups="qcom,pdk" />
+        <project path="hardware/qcom/wlan-caf" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk" />
 
-      <remove-project path="bionic" name="LineageOS/android_bionic" groups="pdk" />
-      <project path="bionic" name="LineageOS/android_bionic" groups="pdk" revision="refs/changes/12/223412/6" />
-
-      <remove-project path="bootable/recovery" name="LineageOS/android_bootable_recovery" groups="pdk" />
-      <project path="bootable/recovery" name="LineageOS/android_bootable_recovery" groups="pdk" revision="refs/changes/98/222998/2" />
-
-      <remove-project path="external/perfetto" name="LineageOS/android_external_perfetto" groups="pdk" />
-      <project path="external/perfetto" name="LineageOS/android_external_perfetto" groups="pdk" revision="refs/changes/13/223413/1" />
-
-      <remove-project path="external/tinycompress" name="LineageOS/android_external_tinycompress" groups="pdk" />
-      <project path="external/tinycompress" name="LineageOS/android_external_tinycompress" groups="pdk" revision="refs/changes/16/223016/1" />
-
-      <remove-project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" />
-      <project path="frameworks/av" name="LineageOS/android_frameworks_av" groups="pdk" revision="refs/changes/73/224173/4" />
-
-      <remove-project path="frameworks/compile/mclinker" name="platform/frameworks/compile/mclinker" groups="pdk" />
-      <project path="frameworks/compile/mclinker" name="LineageOS/android_frameworks_compile_mclinker" groups="pdk" revision="refs/changes/83/222683/1" />
-
-      <remove-project path="frameworks/opt/telephony" name="LineageOS/android_frameworks_opt_telephony" groups="pdk" />
-      <project path="frameworks/opt/telephony" name="LineageOS/android_frameworks_opt_telephony" groups="pdk" revision="refs/changes/74/223774/1" />
-
-      <remove-project path="hardware/libhardware" name="LineageOS/android_hardware_libhardware" groups="pdk" />
-      <project path="hardware/libhardware" name="LineageOS/android_hardware_libhardware" groups="pdk" revision="refs/changes/98/223098/1" />
-
-      <remove-project path="hardware/libhardware_legacy" name="LineageOS/android_hardware_libhardware_legacy" groups="pdk" />
-      <project path="hardware/libhardware_legacy" name="LineageOS/android_hardware_libhardware_legacy" groups="pdk" revision="refs/changes/21/223521/1" />
-
-      <remove-project path="hardware/ril" name="LineageOS/android_hardware_ril" groups="pdk" />
-      <project path="hardware/ril" name="LineageOS/android_hardware_ril" groups="pdk" revision="refs/changes/63/224063/1" />
-
-      <remove-project path="packages/services/Telecomm" name="LineageOS/android_packages_services_Telecomm" groups="pdk-cw-fs,pdk-fs" />
-      <project path="packages/services/Telecomm" name="LineageOS/android_packages_services_Telecomm" groups="pdk-cw-fs,pdk-fs" revision="refs/changes/99/223099/1" />
-
-      <remove-project path="system/bt" name="LineageOS/android_system_bt" groups="pdk" />
-      <project path="system/bt" name="LineageOS/android_system_bt" groups="pdk" revision="refs/changes/13/224813/4" />
-
-      <remove-project path="system/core" name="LineageOS/android_system_core" groups="pdk" />
-      <project path="system/core" name="LineageOS/android_system_core" groups="pdk" revision="refs/changes/00/223500/5" />
-
-      <remove-project path="system/sepolicy" name="LineageOS/android_system_sepolicy" groups="pdk" />
-      <project path="system/sepolicy" name="LineageOS/android_system_sepolicy" groups="pdk" revision="refs/changes/48/223748/3" />
-
-      <project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" revision="refs/changes/49/223149/4" />
-
-      <remove-project name="LineageOS/android_vendor_lineage" />
-      <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" revision="refs/changes/59/224759/2" />
-
-      <remove-project name="LineageOS/android_hardware_qcom_audio" />
-      <project path="hardware/qcom/audio-caf/msm8916" name="LineageOS/android_hardware_qcom_audio" groups="qcom,qcom_audio,pdk" revision="refs/changes/22/223522/1" />
-      <remove-project name="LineageOS/android_hardware_qcom_display" />
-      <project path="hardware/qcom/display-caf/msm8916" name="LineageOS/android_hardware_qcom_display" groups="pdk,qcom,qcom_display" revision="refs/changes/45/223445/2" />
-      <remove-project name="LineageOS/android_hardware_qcom_media" />
-      <project path="hardware/qcom/media-caf/msm8916" name="LineageOS/android_hardware_qcom_media" groups="qcom,pdk" revision="refs/changes/42/223442/1" />
-
-      <project path="hardware/qcom/power" name="LineageOS/android_hardware_qcom_power" groups="qcom,pdk" revision="refs/changes/92/223892/1" />
-      <project path="hardware/qcom/wlan-caf" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk" />
-      <project path="vendor/nxp/interfaces" name="LineageOS/android_vendor_nxp_interfaces_opensource_nfc" revision="lineage-15.1" />
-      <project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" />
-      <project path="system/qcom" name="LineageOS/android_system_qcom" groups="qcom" remote="github" revision="lineage-15.1" />
-
-      <remove-project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" />
-      <project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" remote="aosp" revision="master" />
+        <remove-project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" />
+        <project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" remote="aosp" revision="master" />
   
-      <project path="packages/apps/Eleven" name="LineageOS/android_packages_apps_Eleven" />
-      <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" revision="refs/changes/86/224386/1" />
-      <project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" revision="refs/changes/77/223677/1" />
-      <project path="packages/apps/Jelly" name="LineageOS/android_packages_apps_Jelly" />
+        <project path="packages/apps/Eleven" name="LineageOS/android_packages_apps_Eleven" />
+        <project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" />
+        <project path="packages/apps/Jelly" name="LineageOS/android_packages_apps_Jelly" />
+
+        <project path="system/qcom" name="LineageOS/android_system_qcom" groups="qcom" remote="github" revision="lineage-15.1" />
+
+        <project path="vendor/nxp/interfaces" name="LineageOS/android_vendor_nxp_interfaces_opensource_nfc" revision="lineage-15.1" />
+        <project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" />
 
 </manifest>
