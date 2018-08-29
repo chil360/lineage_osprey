@@ -1,0 +1,26 @@
+From a552f19ffd60cbbddeb16bf0478f53cf98b55504 Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Sun, 26 Aug 2018 17:07:41 +0000
+Subject: [PATCH] [DNM] libbt-vendor: Suppress warnings
+
+Change-Id: I7bee3c36706631e7e40ca533cb94180a633ba25d
+---
+ libbt-vendor/Android.mk | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/libbt-vendor/Android.mk b/libbt-vendor/Android.mk
+index 2aa761e..acbd476 100644
+--- a/libbt-vendor/Android.mk
++++ b/libbt-vendor/Android.mk
+@@ -91,6 +91,8 @@ ifeq ($(QCOM_BT_READ_ADDR_FROM_PROP),true)
+ LOCAL_CFLAGS += -DREAD_BT_ADDR_FROM_PROP
+ endif
+ 
++LOCAL_CFLAGS += -Wno-error
++
+ #include $(LOCAL_PATH)/vnd_buildcfg.mk
+ 
+ include $(BUILD_SHARED_LIBRARY)
+-- 
+2.17.1
+
