@@ -14,18 +14,11 @@
 	<project name="dev-harsh1998/GCC_BUILDS" path="prebuilts/gcc/linux-x86/arm/arm-eabi-7.3" remote="github" revision="master" />
 
 	<!-- LOS Staging repos -->
-        <remove-project path="frameworks/compile/mclinker" name="platform/frameworks/compile/mclinker" groups="pdk" />
-        <project path="frameworks/compile/mclinker" name="LineageOS/android_frameworks_compile_mclinker" groups="pdk" />
-
-        <project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" />
         <project path="hardware/qcom/bt-caf" name="LineageOS/android_hardware_qcom_bt" revision="lineage-16.0-caf" />
         <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" />
         <project path="hardware/qcom/power" name="LineageOS/android_hardware_qcom_power" groups="qcom,pdk" />
         <project path="hardware/ril-caf" name="LineageOS/android_hardware_ril" revision="lineage-16.0-caf" />
         <project path="hardware/qcom/wlan-caf" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk" />
-
-        <remove-project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" />
-        <project path="prebuilts/build-tools" name="platform/prebuilts/build-tools" groups="pdk" clone-depth="1" remote="aosp" revision="master" />
   
         <project path="packages/apps/Eleven" name="LineageOS/android_packages_apps_Eleven" />
         <project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" />
