@@ -3,7 +3,7 @@
 
 	<project name="chil360/android_device_motorola_osprey" path="device/motorola/osprey" remote="github" revision="lineage-16.0" />
 	<project name="chil360/android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="github" revision="lineage-16.0" />
-	<project name="chil360/android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="github" revision="8.1.x" />
+	<project name="chil360/android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="github" revision="9.0" />
 	<project name="chil360/proprietary_vendor_motorola" path="vendor/motorola" remote="github" revision="lineage-16.0" />
 
 	<project name="LineageOS/android_device_qcom_common" path="device/qcom/common" remote="github" revision="lineage-15.1" />
@@ -14,19 +14,30 @@
 	<project name="dev-harsh1998/GCC_BUILDS" path="prebuilts/gcc/linux-x86/arm/arm-eabi-7.3" remote="github" revision="master" />
 
 	<!-- LOS Staging repos -->
+        <project path="external/bash" name="LineageOS/android_external_bash" />
+        <project path="external/htop" name="LineageOS/android_external_htop" />
+        <project path="external/libncurses" name="LineageOS/android_external_libncurses" />
+        <project path="external/nano" name="LineageOS/android_external_nano" />
+        <project path="external/openssh" name="LineageOS/android_external_openssh" />
+        <project path="external/p7zip" name="LineageOS/android_external_p7zip" />
+        <project path="external/pigz" name="LineageOS/android_external_pigz" />
+        <project path="external/rsync" name="LineageOS/android_external_rsync" />
+        <project path="external/unrar" name="LineageOS/android_external_unrar" />
+        <project path="external/vim" name="LineageOS/android_external_vim" />
+        <project path="external/zip" name="LineageOS/android_external_zip" />
+
         <project path="hardware/qcom/bt-caf" name="LineageOS/android_hardware_qcom_bt" revision="lineage-16.0-caf" />
-        <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" />
         <project path="hardware/qcom/power" name="LineageOS/android_hardware_qcom_power" groups="qcom,pdk" />
-        <project path="hardware/ril-caf" name="LineageOS/android_hardware_ril" revision="lineage-16.0-caf" />
-        <project path="hardware/qcom/wlan-caf" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk" />
-  
-        <project path="packages/apps/Eleven" name="LineageOS/android_packages_apps_Eleven" />
+        <project path="hardware/qcom/wlan-caf" name="LineageOS/android_hardware_qcom_wlan" revision="lineage-16.0-caf" />
+
+<!--
+        <project path="hardware/qcom/fm" name="LineageOS/android_hardware_qcom_fm" groups="qcom,qcom_fm" />
         <project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" />
-        <project path="packages/apps/Jelly" name="LineageOS/android_packages_apps_Jelly" />
+-->
+        <project path="packages/overlays/Lineage" name="LineageOS/android_packages_overlays_Lineage" />
 
         <project path="system/qcom" name="LineageOS/android_system_qcom" groups="qcom" remote="github" revision="lineage-15.1" />
 
         <project path="vendor/nxp/interfaces" name="LineageOS/android_vendor_nxp_interfaces_opensource_nfc" revision="lineage-15.1" />
-        <project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" />
 
 </manifest>

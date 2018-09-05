@@ -10,10 +10,6 @@ cd system/qcom
 git am -3 $TOP/0001-DNM-libqsap_sdk-Suppress-warnings.patch
 cd $TOP
 
-cd hardware/qcom/bt-caf
-git am -3 $TOP/0001-DNM-libbt-vendor-Suppress-warnings.patch
-cd $TOP
-
 #############################################################
 # CHERRYPICKS                                               #
 #############################################################
@@ -21,9 +17,6 @@ cd $TOP
 # Example: repopick [CHANGE_NUMBER]
 # android_build
 repopick 222733 222760
-
-# android_build_soong
-repopick 223431
 
 # android_bionic
 repopick 223067
@@ -37,23 +30,14 @@ repopick 225762-225763 223008 223011;
 # android_frameworks_opt_telephony
 repopick 223774
 
+# android_hardware_interfaces
+repopick 224064
+
 # android_hardware_libhardware
-repopick 223096 223097
-
-# android_hardware_libhardware_legacy
-repopick 225716 223521;
-
-# android_hardware_ril
-repopick 224063;
-
-# hardware/ril-caf
-repopick 225738-225739;
-
-# android_packages_services_Telecomm
-repopick 223099
+repopick 223097
 
 # android_system_bt
-repopick 223945 224813
+repopick 223945 225422 225423
 
 # android_system_core
 repopick 223085 223500 224264
@@ -62,10 +46,13 @@ repopick 223085 223500 224264
 repopick 223746 223748
 
 # android_vendor_lineage
-repopick 223890 224758 226155
+repopick 223890 224758
 
 # android_hardware_qcom_audio
 repopick -t 8916-audio-p
+
+# android_hardware_qcom_bt
+repopick -t pie-bt-caf
 
 # android_hardware_qcom_display
 repopick -t 8916-display-p
@@ -76,12 +63,24 @@ repopick -t 8916-media-p
 # android_hardware_qcom_power
 repopick 223892
 
+# android_hardware_qcom_wlan
+repopick -t pie-wlan-caf
+
 # android_hardware_qcom_fm
-repopick 223678 223683 223684 223685 223686 223687 223692 223688 224246 224386
+#repopick 223678 223683 223684 223685 223686 223687 223692 223688 224246 224386
+#cd hardware/qcom/fm
+#git fetch https://github.com/LineageOS/android_hardware_qcom_fm refs/changes/86/224386/2
+#git checkout FETCH_HEAD
+#cd $TOP
 
-repopick -t pie-caf-namespaces
 repopick -t pie-gralloc_10_usage_bits
+repopick -t per-process-sdk-override
 
-# Basic USB HAL
-repopick 224525
+# Command line tools
+repopick -t pie-cmdline-tools -e 223893,224028
 
+# Styles
+repopick -t pie-styles -e 225583,225755
+cd frameworks/base
+git am -3 $TOP/0001-DNM-Temp-build-fix-for-pie-styles.patch
+cd $TOP
