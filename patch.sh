@@ -67,11 +67,7 @@ repopick 223892
 repopick -t pie-wlan-caf
 
 # android_hardware_qcom_fm
-#repopick 223678 223683 223684 223685 223686 223687 223692 223688 224246 224386
-#cd hardware/qcom/fm
-#git fetch https://github.com/LineageOS/android_hardware_qcom_fm refs/changes/86/224386/2
-#git checkout FETCH_HEAD
-#cd $TOP
+repopick 226683-226743 223685 226744 226745 223678 223683 223684 226862 223686 223687 223692 223688 224246 224386
 
 repopick -t pie-gralloc_10_usage_bits
 repopick -t per-process-sdk-override
@@ -84,3 +80,6 @@ repopick -t pie-styles -e 225583,225755
 cd frameworks/base
 git am -3 $TOP/0001-DNM-Temp-build-fix-for-pie-styles.patch
 cd $TOP
+
+# Advanced restart
+repopick -t pie-powermenu
