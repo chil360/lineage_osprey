@@ -14,11 +14,11 @@ What's working?
  - GPS
  - Camera (apart from HDR)
  - Camcorder
+ - Camera HDR - Using OpenCamera app
+ - SELinux Enforcing
 
 What's not working?
- - Camera HDR
  - Volte
- - Probably more!
 
 Download
 --------
