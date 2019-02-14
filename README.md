@@ -14,7 +14,7 @@ What's working?
  - GPS
  - Camera (apart from HDR)
  - Camcorder
- - Camera HDR - Using OpenCamera app
+ - Camera HDR (Now working in Snap)
  - SELinux Enforcing
 
 What's not working?
@@ -49,8 +49,6 @@ Then to sync up:
 OR, for those with limited bandwidth/storage:
 
     repo sync -c -f --no-clone-bundle --no-tags --force-sync --optimized-fetch --prune
-
-Currently I a use a few patches for development reasons and to fix a couple of compile issues. Copy patch.sh and the .patch files from this repo to the root of your build folder. Then run the patch.sh script to apply.
 
 Now start the build...
 
