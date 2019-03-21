@@ -1,0 +1,369 @@
+From 04882cacf88cccc3ad360fadbd1c6e20ecaa1ee8 Mon Sep 17 00:00:00 2001
+From: Derek Sollenberger <djsollen@google.com>
+Date: Wed, 6 Feb 2019 11:03:31 -0500
+Subject: [PATCH] Improve performance of unclipped save layers
+
+Instead of allocating a separate renderTarget and switching
+between them on each draw the new implementation follows the same
+pattern that the old HWUI renderer used. The area of the layer is
+now copied to a buffer on the GPU, the area is then cleared, rendered
+as normal, and finally the texture is redrawn using dst_over blending.
+
+This results in no render target switches and is considerably faster
+on some hardware.
+
+Test: CtsGraphicsTestCases, CtsUiRenderingTestCases
+Bug: 119222339
+Change-Id: I672d860916dea851a3bc908b5c4fad08b79309fa
+Merged-In: I716aac1fc31e4c7a171373d37dee82034c01cf18
+Signed-off-by: Pranav Vashi <neobuddy89@gmail.com>
+Signed-off-by: DennySPB <dennyspb@gmail.com>
+---
+ core/java/android/view/View.java              | 25 +++++--
+ core/jni/android_graphics_Canvas.cpp          | 10 +++
+ graphics/java/android/graphics/Canvas.java    | 16 ++++-
+ libs/hwui/Android.bp                          |  1 +
+ libs/hwui/SkiaCanvas.cpp                      | 16 +++++
+ libs/hwui/SkiaCanvas.h                        |  3 +
+ libs/hwui/hwui/Canvas.h                       |  6 ++
+ .../pipeline/skia/UnclippedLayerDrawables.cpp | 69 +++++++++++++++++++
+ .../pipeline/skia/UnclippedLayerDrawables.h   | 58 ++++++++++++++++
+ 9 files changed, 198 insertions(+), 6 deletions(-)
+ create mode 100644 libs/hwui/pipeline/skia/UnclippedLayerDrawables.cpp
+ create mode 100644 libs/hwui/pipeline/skia/UnclippedLayerDrawables.h
+
+diff --git a/core/java/android/view/View.java b/core/java/android/view/View.java
+index 04e818247e3..a7af95e32a4 100644
+--- a/core/java/android/view/View.java
++++ b/core/java/android/view/View.java
+@@ -20295,23 +20295,27 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+         }
+ 
+         saveCount = canvas.getSaveCount();
++        long leftSavePtr = 0;
++        long rightSavePtr = 0;
++        long topSavePtr = 0;
++        long bottomSavePtr = 0;
+ 
+         int solidColor = getSolidColor();
+         if (solidColor == 0) {
+             if (drawTop) {
+-                canvas.saveUnclippedLayer(left, top, right, top + length);
++                topSavePtr = canvas.tempSaveUnclippedLayer(left, top, right, top + length);
+             }
+ 
+             if (drawBottom) {
+-                canvas.saveUnclippedLayer(left, bottom - length, right, bottom);
++                bottomSavePtr = canvas.tempSaveUnclippedLayer(left, bottom - length, right, bottom);
+             }
+ 
+             if (drawLeft) {
+-                canvas.saveUnclippedLayer(left, top, left + length, bottom);
++                leftSavePtr = canvas.tempSaveUnclippedLayer(left, top, left + length, bottom);
+             }
+ 
+             if (drawRight) {
+-                canvas.saveUnclippedLayer(right - length, top, right, bottom);
++                rightSavePtr = canvas.tempSaveUnclippedLayer(right - length, top, right, bottom);
+             }
+         } else {
+             scrollabilityCache.setFadeColor(solidColor);
+@@ -20363,6 +20367,19 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
+             canvas.drawRect(right - length, top, right, bottom, p);
+         }
+ 
++        // restore the unclipped layers and all other unrestored saves
++        if (drawRight) {
++            canvas.restoreUnclippedLayer(rightSavePtr);
++        }
++        if (drawLeft) {
++            canvas.restoreUnclippedLayer(leftSavePtr);
++        }
++        if (drawBottom) {
++            canvas.restoreUnclippedLayer(bottomSavePtr);
++        }
++        if (drawTop) {
++            canvas.restoreUnclippedLayer(topSavePtr);
++        }
+         canvas.restoreToCount(saveCount);
+ 
+         drawAutofilledHighlight(canvas);
+diff --git a/core/jni/android_graphics_Canvas.cpp b/core/jni/android_graphics_Canvas.cpp
+index 7f90d8ee3e4..409c1c8d215 100644
+--- a/core/jni/android_graphics_Canvas.cpp
++++ b/core/jni/android_graphics_Canvas.cpp
+@@ -118,6 +118,14 @@ static jint getSaveCount(jlong canvasHandle) {
+     return static_cast<jint>(get_canvas(canvasHandle)->getSaveCount());
+ }
+ 
++static jlong saveUnclippedLayer(jlong canvasHandle, jint l, jint t, jint r, jint b) {
++    return reinterpret_cast<jlong>(get_canvas(canvasHandle)->saveUnclippedLayer(l, t, r, b));
++}
++
++static void restoreUnclippedLayer(jlong canvasHandle, jlong savePtr) {
++    get_canvas(canvasHandle)->restoreUnclippedLayer(reinterpret_cast<void*>(savePtr));
++}
++
+ static void getMatrix(jlong canvasHandle, jlong matrixHandle) {
+     SkMatrix* matrix = reinterpret_cast<SkMatrix*>(matrixHandle);
+     get_canvas(canvasHandle)->getMatrix(matrix);
+@@ -610,6 +618,8 @@ static const JNINativeMethod gMethods[] = {
+     {"nGetSaveCount","(J)I", (void*) CanvasJNI::getSaveCount},
+     {"nRestore","(J)Z", (void*) CanvasJNI::restore},
+     {"nRestoreToCount","(JI)V", (void*) CanvasJNI::restoreToCount},
++    {"nSaveUnclippedLayer","(JIIII)J", (void*) CanvasJNI::saveUnclippedLayer},
++    {"nRestoreUnclippedLayer","(JJ)V", (void*) CanvasJNI::restoreUnclippedLayer},
+     {"nGetMatrix", "(JJ)V", (void*)CanvasJNI::getMatrix},
+     {"nSetMatrix","(JJ)V", (void*) CanvasJNI::setMatrix},
+     {"nConcat","(JJ)V", (void*) CanvasJNI::concat},
+diff --git a/graphics/java/android/graphics/Canvas.java b/graphics/java/android/graphics/Canvas.java
+index 22c4e7557b7..a555c8b50bd 100644
+--- a/graphics/java/android/graphics/Canvas.java
++++ b/graphics/java/android/graphics/Canvas.java
+@@ -490,8 +490,15 @@ public class Canvas extends BaseCanvas {
+     /**
+      * @hide
+      */
+-    public int saveUnclippedLayer(int left, int top, int right, int bottom) {
+-        return nSaveLayer(mNativeCanvasWrapper, left, top, right, bottom, 0, 0);
++    public long tempSaveUnclippedLayer(int left, int top, int right, int bottom) {
++        return nSaveUnclippedLayer(mNativeCanvasWrapper, left, top, right, bottom);
++    }
++
++    /**
++     * @hide
++     */
++    public void restoreUnclippedLayer(long savePtr) {
++        nRestoreUnclippedLayer(mNativeCanvasWrapper, savePtr);
+     }
+ 
+     /**
+@@ -1333,6 +1340,11 @@ public class Canvas extends BaseCanvas {
+     @CriticalNative
+     private static native int nGetSaveCount(long canvasHandle);
+ 
++    @CriticalNative
++    private static native long nSaveUnclippedLayer(long nativeCanvas, int l, int t, int r, int b);
++    @CriticalNative
++    private static native void nRestoreUnclippedLayer(long nativeCanvas, long savePtr);
++
+     @CriticalNative
+     private static native void nTranslate(long canvasHandle, float dx, float dy);
+     @CriticalNative
+diff --git a/libs/hwui/Android.bp b/libs/hwui/Android.bp
+index cb260b5b4b9..3594f0d6f9b 100644
+--- a/libs/hwui/Android.bp
++++ b/libs/hwui/Android.bp
+@@ -174,6 +174,7 @@ cc_defaults {
+         "pipeline/skia/SkiaRecordingCanvas.cpp",
+         "pipeline/skia/SkiaVulkanPipeline.cpp",
+         "pipeline/skia/VectorDrawableAtlas.cpp",
++        "pipeline/skia/UnclippedLayerDrawables.cpp",
+         "renderstate/Blend.cpp",
+         "renderstate/MeshState.cpp",
+         "renderstate/OffscreenBufferPool.cpp",
+diff --git a/libs/hwui/SkiaCanvas.cpp b/libs/hwui/SkiaCanvas.cpp
+index 40b811d813f..546798bbee6 100644
+--- a/libs/hwui/SkiaCanvas.cpp
++++ b/libs/hwui/SkiaCanvas.cpp
+@@ -22,6 +22,7 @@
+ #include "hwui/Bitmap.h"
+ #include "hwui/MinikinUtils.h"
+ #include "pipeline/skia/AnimatedDrawables.h"
++#include "pipeline/skia/UnclippedLayerDrawables.h"
+ 
+ #include <SkAnimatedImage.h>
+ #include <SkCanvasStateUtils.h>
+@@ -841,4 +842,19 @@ void SkiaCanvas::callDrawGLFunction(Functor* functor,
+     LOG_ALWAYS_FATAL("SkiaCanvas can't directly draw GL Content");
+ }
+ 
++void* SkiaCanvas::saveUnclippedLayer(int left, int top, int right, int bottom) {
++    sk_sp<uirenderer::skiapipeline::StartUnclippedLayerDrawable> drawable(
++            new uirenderer::skiapipeline::StartUnclippedLayerDrawable(
++                    SkIRect::MakeLTRB(left, top, right, bottom)));
++    mCanvas->drawDrawable(drawable.get());
++    return drawable.release();
++}
++
++void SkiaCanvas::restoreUnclippedLayer(void* savePtr) {
++    sk_sp<uirenderer::skiapipeline::EndUnclippedLayerDrawable> drawable(
++            new uirenderer::skiapipeline::EndUnclippedLayerDrawable(
++                reinterpret_cast<uirenderer::skiapipeline::StartUnclippedLayerDrawable*>(savePtr)));
++    mCanvas->drawDrawable(drawable.get());
++}
++
+ }  // namespace android
+diff --git a/libs/hwui/SkiaCanvas.h b/libs/hwui/SkiaCanvas.h
+index 3efc22a03cd..f45bdb6b5b8 100644
+--- a/libs/hwui/SkiaCanvas.h
++++ b/libs/hwui/SkiaCanvas.h
+@@ -146,6 +146,9 @@ public:
+     virtual void callDrawGLFunction(Functor* functor,
+                                     uirenderer::GlFunctorLifecycleListener* listener) override;
+ 
++    void* saveUnclippedLayer(int left, int top, int right, int bottom) override;
++    void restoreUnclippedLayer(void* savePtr) override;
++
+ protected:
+     SkiaCanvas();
+     void reset(SkCanvas* skiaCanvas);
+diff --git a/libs/hwui/hwui/Canvas.h b/libs/hwui/hwui/Canvas.h
+index f341cf96120..7a5a6be4aa7 100644
+--- a/libs/hwui/hwui/Canvas.h
++++ b/libs/hwui/hwui/Canvas.h
+@@ -171,6 +171,12 @@ public:
+     virtual void callDrawGLFunction(Functor* functor,
+                                     uirenderer::GlFunctorLifecycleListener* listener) = 0;
+ 
++    virtual void* saveUnclippedLayer(int l, int t, int r, int b) {
++        saveLayer(l,t,r,b,nullptr, 0);
++        return nullptr;
++    }
++    virtual void restoreUnclippedLayer(void*) { restore(); }
++
+     // ----------------------------------------------------------------------------
+     // Canvas state operations
+     // ----------------------------------------------------------------------------
+diff --git a/libs/hwui/pipeline/skia/UnclippedLayerDrawables.cpp b/libs/hwui/pipeline/skia/UnclippedLayerDrawables.cpp
+new file mode 100644
+index 00000000000..65748719c9c
+--- /dev/null
++++ b/libs/hwui/pipeline/skia/UnclippedLayerDrawables.cpp
+@@ -0,0 +1,69 @@
++/*
++ * Copyright (C) 2018 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "UnclippedLayerDrawables.h"
++#include "utils/TraceUtils.h"
++
++#include <SkAndroidFrameworkUtils.h>
++#include <SkSurface.h>
++#include <SkImage.h>
++
++namespace android {
++namespace uirenderer {
++namespace skiapipeline {
++
++void StartUnclippedLayerDrawable::onDraw(SkCanvas* canvas) {
++    ATRACE_NAME("startUnclippedLayer");
++    // store the contents of the canvas within the bounds
++    sk_sp<SkSurface> surface = SkAndroidFrameworkUtils::getSurfaceFromCanvas(canvas);
++    SkRect deviceBounds;
++
++    if(surface && canvas->getTotalMatrix().mapRect(&deviceBounds, mBounds)) {
++        SkIRect deviceIBounds;
++        deviceBounds.roundOut(&deviceIBounds);
++        mOriginalContents = surface->makeImageSnapshot(deviceIBounds);
++
++        canvas->flush();
++
++        mSaveCount = canvas->save();
++
++        // clear the contents of the canvas within the bounds
++        SkPaint p;
++        p.setBlendMode(SkBlendMode::kClear);
++        canvas->drawRect(mBounds, p);
++
++    } else {
++        // LOG WARNING
++    }
++}
++
++void EndUnclippedLayerDrawable::onDraw(SkCanvas* canvas) {
++    ATRACE_NAME("endUnclippedLayer");
++    sk_sp<SkImage> originalContents(mStartDrawable->releaseOriginalContents());
++    const SkRect bounds = mStartDrawable->getBounds();
++    const int saveCount = mStartDrawable->getSaveCount();
++
++    if (saveCount > 0) {
++        canvas->restoreToCount(saveCount);
++        SkPaint p;
++        p.setBlendMode(SkBlendMode::kDstOver);
++        canvas->drawImage(originalContents, bounds.fLeft, bounds.fTop, &p);
++    }
++}
++
++};  // namespace skiapipeline
++};  // namespace uirenderer
++};  // namespace android
+diff --git a/libs/hwui/pipeline/skia/UnclippedLayerDrawables.h b/libs/hwui/pipeline/skia/UnclippedLayerDrawables.h
+new file mode 100644
+index 00000000000..c488e2e23ff
+--- /dev/null
++++ b/libs/hwui/pipeline/skia/UnclippedLayerDrawables.h
+@@ -0,0 +1,58 @@
++/*
++ * Copyright (C) 2016 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#pragma once
++
++#include <SkCanvas.h>
++#include <SkDrawable.h>
++
++namespace android {
++namespace uirenderer {
++namespace skiapipeline {
++
++class StartUnclippedLayerDrawable : public SkDrawable {
++public:
++    explicit StartUnclippedLayerDrawable(const SkIRect& bounds) : mBounds(SkRect::Make(bounds)) {}
++    SkImage* releaseOriginalContents() { return mOriginalContents.release(); }
++    int getSaveCount() const { return mSaveCount; }
++
++protected:
++    SkRect onGetBounds() override { return mBounds; }
++    void onDraw(SkCanvas* canvas) override;
++
++private:
++    SkRect mBounds;
++    sk_sp<SkImage> mOriginalContents;
++    int mSaveCount = 0;
++};
++
++class EndUnclippedLayerDrawable : public SkDrawable {
++public:
++    explicit EndUnclippedLayerDrawable(StartUnclippedLayerDrawable* startDrawable)
++            : mStartDrawable(startDrawable) {}
++
++
++protected:
++    SkRect onGetBounds() override { return mStartDrawable->getBounds(); }
++    void onDraw(SkCanvas* canvas) override;
++
++private:
++    sk_sp<StartUnclippedLayerDrawable> mStartDrawable;
++};
++
++};  // namespace skiapipeline
++};  // namespace uirenderer
++};  // namespace android
+-- 
+2.21.0
+

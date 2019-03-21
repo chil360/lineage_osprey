@@ -1,0 +1,253 @@
+From 51816f867e362e7e986ed16ea50b56b7f8a95047 Mon Sep 17 00:00:00 2001
+From: Derek Sollenberger <djsollen@google.com>
+Date: Wed, 6 Feb 2019 10:54:55 -0500
+Subject: [PATCH 1/2] Add rect-parameter to makeImageSnapshot and stop using
+ chromium config options
+
+The changes to makeImageSnapshot make it possible to improve the
+performance of unclippedSaveLayer's in the View system
+
+The config changes cause us to not use VBOs on all classes of GPUs as it
+can be much more efficient to allocate them on the CPU and pass the
+allocation to the driver.
+
+Bug: 119222339
+Test: CTS passes and systrace shows increased performance
+Change-Id: I71a3d62b760c57cf568e151a835cd6977607d821
+Merged-In: Ifa939c91dfc3e258649edeebcd2c8a9adf451009
+Signed-off-by: Pranav Vashi <neobuddy89@gmail.com>
+Signed-off-by: DennySPB <dennyspb@gmail.com>
+---
+ include/android/SkAndroidFrameworkUtils.h |  4 ++++
+ include/config/SkUserConfigManual.h       |  3 ++-
+ include/core/SkSurface.h                  | 11 +++++++++++
+ src/android/SkAndroidFrameworkUtils.cpp   |  6 ++++++
+ src/image/SkSurface.cpp                   | 16 +++++++++++++++-
+ src/image/SkSurface_Base.h                |  5 ++++-
+ src/image/SkSurface_Gpu.cpp               | 14 +++++++++-----
+ src/image/SkSurface_Gpu.h                 |  2 +-
+ src/image/SkSurface_Raster.cpp            | 13 +++++++++++--
+ 9 files changed, 63 insertions(+), 11 deletions(-)
+
+diff --git a/include/android/SkAndroidFrameworkUtils.h b/include/android/SkAndroidFrameworkUtils.h
+index 46d251626e..a2971fe266 100644
+--- a/include/android/SkAndroidFrameworkUtils.h
++++ b/include/android/SkAndroidFrameworkUtils.h
+@@ -9,10 +9,12 @@
+ #define SkAndroidFrameworkUtils_DEFINED
+ 
+ #include "SkTypes.h"
++#include "SkRefCnt.h"
+ 
+ #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
+ 
+ class SkCanvas;
++class SkSurface;
+ 
+ /**
+  *  SkAndroidFrameworkUtils expose private APIs used only by Android framework.
+@@ -33,6 +35,8 @@ public:
+ #endif //SK_SUPPORT_GPU
+ 
+     static void SafetyNetLog(const char*);
++
++    static sk_sp<SkSurface> getSurfaceFromCanvas(SkCanvas* canvas);
+ };
+ 
+ #endif // SK_BUILD_FOR_ANDROID_FRAMEWORK
+diff --git a/include/config/SkUserConfigManual.h b/include/config/SkUserConfigManual.h
+index 69b2d17799..58e4eb38a7 100644
+--- a/include/config/SkUserConfigManual.h
++++ b/include/config/SkUserConfigManual.h
+@@ -7,7 +7,6 @@
+ 
+ #ifndef SkUserConfigManual_DEFINED
+ #define SkUserConfigManual_DEFINED
+-  #define GR_GL_CUSTOM_SETUP_HEADER "gl/GrGLConfig_chrome.h"
+   #define GR_TEST_UTILS 1
+   #define SK_BUILD_FOR_ANDROID_FRAMEWORK
+   #define SK_DEFAULT_FONT_CACHE_LIMIT   (768 * 1024)
+@@ -17,6 +16,8 @@
+   // Disable these Ganesh features
+   #define SK_DISABLE_EXPLICIT_GPU_RESOURCE_ALLOCATION
+   #define SK_DISABLE_RENDER_TARGET_SORTING
++  // Check error is expensive. HWUI historically also doesn't check its allocations
++  #define GR_GL_CHECK_ALLOC_WITH_GET_ERROR            0
+ 
+   // Legacy flags
+   #define SK_IGNORE_GPU_DITHER
+diff --git a/include/core/SkSurface.h b/include/core/SkSurface.h
+index 5a3887ef02..944f9dcebc 100644
+--- a/include/core/SkSurface.h
++++ b/include/core/SkSurface.h
+@@ -543,6 +543,17 @@ public:
+     */
+     sk_sp<SkImage> makeImageSnapshot();
+ 
++    /**
++     *  Like the no-parameter version, this returns an image of the current surface contents.
++     *  This variant takes a rectangle specifying the subset of the surface that is of interest.
++     *  These bounds will be sanitized before being used.
++     *  - If bounds extends beyond the surface, it will be trimmed to just the intersection of
++     *    it and the surface.
++     *  - If bounds does not intersect the surface, then this returns nullptr.
++     *  - If bounds == the surface, then this is the same as calling the no-parameter variant.
++     */
++    sk_sp<SkImage> makeImageSnapshot(const SkIRect& bounds);
++
+     /** Draws SkSurface contents to canvas, with its top-left corner at (x, y).
+ 
+         If SkPaint paint is not nullptr, apply SkColorFilter, color alpha, SkImageFilter,
+diff --git a/src/android/SkAndroidFrameworkUtils.cpp b/src/android/SkAndroidFrameworkUtils.cpp
+index f0a7b8a2fc..0be69bed20 100644
+--- a/src/android/SkAndroidFrameworkUtils.cpp
++++ b/src/android/SkAndroidFrameworkUtils.cpp
+@@ -8,6 +8,7 @@
+ #include "SkAndroidFrameworkUtils.h"
+ #include "SkCanvas.h"
+ #include "SkDevice.h"
++#include "SkSurface_Base.h"
+ 
+ #if SK_SUPPORT_GPU
+ #include "GrStyle.h"
+@@ -58,5 +59,10 @@ void SkAndroidFrameworkUtils::SafetyNetLog(const char* bugNumber) {
+     android_errorWriteLog(0x534e4554, bugNumber);
+ }
+ 
++sk_sp<SkSurface> SkAndroidFrameworkUtils::getSurfaceFromCanvas(SkCanvas* canvas) {
++    sk_sp<SkSurface> surface(SkSafeRef(canvas->getSurfaceBase()));
++    return surface;
++}
++
+ #endif // SK_BUILD_FOR_ANDROID_FRAMEWORK
+ 
+diff --git a/src/image/SkSurface.cpp b/src/image/SkSurface.cpp
+index 26ee40e9fb..bf8e6d9a86 100644
+--- a/src/image/SkSurface.cpp
++++ b/src/image/SkSurface.cpp
+@@ -157,6 +157,20 @@ sk_sp<SkImage> SkSurface::makeImageSnapshot() {
+     return asSB(this)->refCachedImage();
+ }
+ 
++sk_sp<SkImage> SkSurface::makeImageSnapshot(const SkIRect& srcBounds) {
++    const SkIRect surfBounds = { 0, 0, fWidth, fHeight };
++    SkIRect bounds = srcBounds;
++    if (!bounds.intersect(surfBounds)) {
++        return nullptr;
++    }
++    SkASSERT(!bounds.isEmpty());
++    if (bounds == surfBounds) {
++        return this->makeImageSnapshot();
++    } else {
++        return asSB(this)->onNewImageSnapshot(&bounds);
++    }
++}
++
+ sk_sp<SkSurface> SkSurface::makeSurface(const SkImageInfo& info) {
+     return asSB(this)->onNewSurface(info);
+ }
+@@ -255,7 +269,7 @@ protected:
+     sk_sp<SkSurface> onNewSurface(const SkImageInfo& info) override {
+         return MakeNull(info.width(), info.height());
+     }
+-    sk_sp<SkImage> onNewImageSnapshot() override { return nullptr; }
++    sk_sp<SkImage> onNewImageSnapshot(const SkIRect* subsetOrNull) override { return nullptr; }
+     void onWritePixels(const SkPixmap&, int x, int y) override {}
+     void onDraw(SkCanvas*, SkScalar x, SkScalar y, const SkPaint*) override {}
+     void onCopyOnWrite(ContentChangeMode) override {}
+diff --git a/src/image/SkSurface_Base.h b/src/image/SkSurface_Base.h
+index 56a09cf5e6..1ad2f8376e 100644
+--- a/src/image/SkSurface_Base.h
++++ b/src/image/SkSurface_Base.h
+@@ -42,8 +42,11 @@ public:
+      *  This needs to be able to outlive the surface itself (if need be), and
+      *  must faithfully represent the current contents, even if the surface
+      *  is changed after this called (e.g. it is drawn to via its canvas).
++     *
++     *  If a subset is specified, the the impl must make a copy, rather than try to wait
++     *  on copy-on-write.
+      */
+-    virtual sk_sp<SkImage> onNewImageSnapshot() = 0;
++    virtual sk_sp<SkImage> onNewImageSnapshot(const SkIRect* subset = nullptr) = 0;
+ 
+     virtual void onWritePixels(const SkPixmap&, int x, int y) = 0;
+ 
+diff --git a/src/image/SkSurface_Gpu.cpp b/src/image/SkSurface_Gpu.cpp
+index 78dcd59e54..5276d1ffda 100644
+--- a/src/image/SkSurface_Gpu.cpp
++++ b/src/image/SkSurface_Gpu.cpp
+@@ -88,7 +88,7 @@ sk_sp<SkSurface> SkSurface_Gpu::onNewSurface(const SkImageInfo& info) {
+                                        origin, &this->props());
+ }
+ 
+-sk_sp<SkImage> SkSurface_Gpu::onNewImageSnapshot() {
++sk_sp<SkImage> SkSurface_Gpu::onNewImageSnapshot(const SkIRect* subset) {
+     GrRenderTargetContext* rtc = fDevice->accessRenderTargetContext();
+     if (!rtc) {
+         return nullptr;
+@@ -103,10 +103,14 @@ sk_sp<SkImage> SkSurface_Gpu::onNewImageSnapshot() {
+     SkBudgeted budgeted = rtc->asSurfaceProxy()->isBudgeted();
+ 
+     sk_sp<GrTextureProxy> srcProxy = rtc->asTextureProxyRef();
+-    // If the original render target is a buffer originally created by the client, then we don't
+-    // want to ever retarget the SkSurface at another buffer we create. Force a copy now to avoid
+-    // copy-on-write.
+-    if (!srcProxy || rtc->priv().refsWrappedObjects()) {
++
++    if (subset) {
++        srcProxy = GrSurfaceProxy::Copy(ctx, rtc->asSurfaceProxy(), rtc->mipMapped(), *subset,
++                                        budgeted);
++    } else if (!srcProxy || rtc->priv().refsWrappedObjects()) {
++        // If the original render target is a buffer originally created by the client, then we don't
++        // want to ever retarget the SkSurface at another buffer we create. Force a copy now to avoid
++        // copy-on-write.
+         SkASSERT(rtc->origin() == rtc->asSurfaceProxy()->origin());
+ 
+         srcProxy = GrSurfaceProxy::Copy(ctx, rtc->asSurfaceProxy(), rtc->mipMapped(), budgeted);
+diff --git a/src/image/SkSurface_Gpu.h b/src/image/SkSurface_Gpu.h
+index 9699b01e05..5254007114 100644
+--- a/src/image/SkSurface_Gpu.h
++++ b/src/image/SkSurface_Gpu.h
+@@ -26,7 +26,7 @@ public:
+     bool onGetRenderTargetHandle(GrBackendObject*, BackendHandleAccess) override;
+     SkCanvas* onNewCanvas() override;
+     sk_sp<SkSurface> onNewSurface(const SkImageInfo&) override;
+-    sk_sp<SkImage> onNewImageSnapshot() override;
++    sk_sp<SkImage> onNewImageSnapshot(const SkIRect* subset) override;
+     void onWritePixels(const SkPixmap&, int x, int y) override;
+     void onCopyOnWrite(ContentChangeMode) override;
+     void onDiscard() override;
+diff --git a/src/image/SkSurface_Raster.cpp b/src/image/SkSurface_Raster.cpp
+index 47d5542ac6..bfb5f3926e 100644
+--- a/src/image/SkSurface_Raster.cpp
++++ b/src/image/SkSurface_Raster.cpp
+@@ -21,7 +21,7 @@ public:
+ 
+     SkCanvas* onNewCanvas() override;
+     sk_sp<SkSurface> onNewSurface(const SkImageInfo&) override;
+-    sk_sp<SkImage> onNewImageSnapshot() override;
++    sk_sp<SkImage> onNewImageSnapshot(const SkIRect* subset) override;
+     void onWritePixels(const SkPixmap&, int x, int y) override;
+     void onDraw(SkCanvas*, SkScalar x, SkScalar y, const SkPaint*) override;
+     void onCopyOnWrite(ContentChangeMode) override;
+@@ -131,7 +131,16 @@ void SkSurface_Raster::onDraw(SkCanvas* canvas, SkScalar x, SkScalar y,
+     canvas->drawBitmap(fBitmap, x, y, paint);
+ }
+ 
+-sk_sp<SkImage> SkSurface_Raster::onNewImageSnapshot() {
++sk_sp<SkImage> SkSurface_Raster::onNewImageSnapshot(const SkIRect* subset) {
++    if (subset) {
++        SkASSERT(SkIRect::MakeWH(fBitmap.width(), fBitmap.height()).contains(*subset));
++        SkBitmap dst;
++        dst.allocPixels(fBitmap.info().makeWH(subset->width(), subset->height()));
++        SkAssertResult(fBitmap.readPixels(dst.pixmap(), subset->left(), subset->top()));
++        dst.setImmutable(); // key, so MakeFromBitmap doesn't make a copy of the buffer
++        return SkImage::MakeFromBitmap(dst);
++    }
++
+     SkCopyPixelsMode cpm = kIfMutable_SkCopyPixelsMode;
+     if (fWeOwnThePixels) {
+         // SkImage_raster requires these pixels are immutable for its full lifetime.
+-- 
+2.21.0
+
