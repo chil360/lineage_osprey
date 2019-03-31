@@ -16,9 +16,7 @@ What's working?
  - Camcorder
  - Camera HDR (Now working in Snap)
  - SELinux Enforcing
-
-What's not working?
- - Volte
+ - VoLTE (credits to @nicorg2515)
 
 Download
 --------
