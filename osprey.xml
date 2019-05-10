@@ -4,13 +4,13 @@
 	<project name="chil360/android_device_motorola_osprey" path="device/motorola/osprey" remote="github" revision="lineage-16.0" />
 	<project name="chil360/android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="github" revision="lineage-16.0" />
 	<project name="chil360/android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="github" revision="9.0" />
-	<project name="chil360/proprietary_vendor_motorola" path="vendor/motorola" remote="github" revision="lineage-16.0" />
+	<project name="chil360/proprietary_vendor_motorola" path="vendor/motorola" remote="github" revision="9.0" />
 
 	<project name="LineageOS/android_packages_resources_devicesettings" path="packages/resources/devicesettings" remote="github" revision="lineage-16.0" />
 	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-16.0" />
         <project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-16.0" />
 
-	<!-- ARM Developer GCC 8.2 kernel toolchain -->
-	<project name="chil360/prebuilts_gcc_linux-x86_arm_arm-eabi-8.2" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.2" remote="github" revision="master" />
+	<!-- ARM Developer GCC 8.3 kernel toolchain -->
+	<project name="chil360/prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="github" revision="master" />
 
 </manifest>
