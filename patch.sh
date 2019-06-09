@@ -26,6 +26,3 @@ cd $TOP
 #############################################################
 
 # Example: repopick [CHANGE_NUMBER]
-
-# Manual Network Selection
-repopick 243706
