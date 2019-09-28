@@ -1,0 +1,35 @@
+From b33a0e59fc95045af47333f89a4d65adc6d5662c Mon Sep 17 00:00:00 2001
+From: Adithya R <gh0strider.2k18.reborn@gmail.com>
+Date: Thu, 12 Sep 2019 11:06:23 +0530
+Subject: [PATCH] Revert "audio: Retrieve feature flag from config store"
+
+This reverts commit e5a9ad29975f4d6522e687d573ca72b3035c138e.
+---
+ policy_hal/AudioPolicyManager.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/policy_hal/AudioPolicyManager.cpp b/policy_hal/AudioPolicyManager.cpp
+index 830ebe1..fc80fdf 100755
+--- a/policy_hal/AudioPolicyManager.cpp
++++ b/policy_hal/AudioPolicyManager.cpp
+@@ -520,7 +520,7 @@ bool AudioPolicyManagerCustom::isOffloadSupported(const audio_offload_info_t& of
+     }
+ 
+     // Check if offload has been disabled
+-    bool offloadDisabled = mApmConfigs->isAudioOffloadDisabled();
++    bool offloadDisabled = property_get_bool("audio.offload.disable", false);
+     if (offloadDisabled) {
+         ALOGI("offload disabled by audio.offload.disable=%d", offloadDisabled);
+         return false;
+@@ -1637,7 +1637,7 @@ audio_io_handle_t AudioPolicyManagerCustom::getOutputForDevices(
+     }
+ 
+     // Do internal direct magic here
+-    bool offload_disabled = mApmConfigs->isAudioOffloadDisabled();
++    bool offload_disabled = property_get_bool("audio.offload.disable", false);
+     if ((*flags == AUDIO_OUTPUT_FLAG_NONE) &&
+         (stream == AUDIO_STREAM_MUSIC) &&
+         ( !offload_disabled) &&
+-- 
+2.23.0
+

@@ -1,5 +1,5 @@
 
-Lineage 16.0 for Osprey
+Lineage 17.0 for Osprey
 =======================
 
 Current Status
@@ -14,9 +14,12 @@ What's working?
  - GPS
  - Camera (apart from HDR)
  - Camcorder
- - Camera HDR (Now working in Snap)
- - SELinux Enforcing
  - VoLTE (credits to @nicorg2515)
+
+What's not working
+ - Camera HDR - doesn't work in Camera2 (same as in P) but Snap will probably work when it gets reinstated.
+ - SELinux is Permissive
+
 
 Download
 --------
@@ -32,7 +35,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b lineage-16.0
+    repo init -u git://github.com/LineageOS/android.git -b lineage-17.0
 
 Now create a local_manifests directory
 
@@ -42,11 +45,16 @@ Copy my local manifest 'osprey.xml' to the 'local_manifests' directory.
 
 Then to sync up:
 
-    repo sync -c -f --force-sync
+    repo sync -c --force-sync
 
 OR, for those with limited bandwidth/storage:
 
-    repo sync -c -f --no-clone-bundle --no-tags --force-sync --optimized-fetch --prune
+    repo sync -c --no-clone-bundle --no-tags --force-sync --optimized-fetch --prune
+
+Apply any required patches:
+
+    Copy patch.sh and the .patch files from this repo to the root of your build folder. Then run the patch.sh script to apply.	
+
 
 Now start the build...
 

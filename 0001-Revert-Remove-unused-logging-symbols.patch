@@ -1,0 +1,65 @@
+From 52b48bb4679d41a987c3c2d088372e3652ee89a8 Mon Sep 17 00:00:00 2001
+From: Adithya R <gh0strider.2k18.reborn@gmail.com>
+Date: Mon, 9 Sep 2019 17:49:00 +0530
+Subject: [PATCH] Revert "Remove unused logging symbols."
+
+* Needed for prebuilt DRM widewine HAL, will be added as a shim later on.
+* Log message:
+02-05 23:43:17.186   310   310 F linker  : CANNOT LINK EXECUTABLE "/vendor/bin/hw/android.hardware.drm@1.0-service.widevine": cannot locate symbol "_ZN7android4base10LogMessageC1EPKcjNS0_5LogIdENS0_11LogSeverityEi" referenced by "/system/vendor/bin/hw/android.hardware.drm@1.0-service.widevine"...
+
+This reverts commit 4aeabf4961db1b8314c45b43d0e4508158d6fbd7 [formerly 3b70eedfa047e3d4d4370caabdcff7ca267a6568].
+
+Change-Id: I45bcfc97c2337dd02d7514494f077d7cac69414f
+
+Former-commit-id: 97fcb06744c6169a732139c127fab883b9f88794
+---
+ base/include/android-base/logging.h | 5 +++++
+ base/logging.cpp                    | 9 +++++++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/base/include/android-base/logging.h b/base/include/android-base/logging.h
+index f94cc258e..aea6ce601 100644
+--- a/base/include/android-base/logging.h
++++ b/base/include/android-base/logging.h
+@@ -447,6 +447,11 @@ class LogMessage {
+  private:
+   const std::unique_ptr<LogMessageData> data_;
+ 
++  // TODO(b/35361699): remove these symbols once all prebuilds stop using it.
++  LogMessage(const char* file, unsigned int line, LogId id, LogSeverity severity, int error);
++  static void LogLine(const char* file, unsigned int line, LogId id, LogSeverity severity,
++                      const char* msg);
++
+   DISALLOW_COPY_AND_ASSIGN(LogMessage);
+ };
+ 
+diff --git a/base/logging.cpp b/base/logging.cpp
+index f89168c0f..ab67a6627 100644
+--- a/base/logging.cpp
++++ b/base/logging.cpp
+@@ -405,6 +405,10 @@ LogMessage::LogMessage(const char* file, unsigned int line, LogId id, LogSeverit
+                        const char* tag, int error)
+     : data_(new LogMessageData(file, line, id, severity, tag, error)) {}
+ 
++LogMessage::LogMessage(const char* file, unsigned int line, LogId id, LogSeverity severity,
++                       int error)
++    : LogMessage(file, line, id, severity, nullptr, error) {}
++
+ LogMessage::~LogMessage() {
+   // Check severity again. This is duplicate work wrt/ LOG macros, but not LOG_STREAM.
+   if (!WOULD_LOG(data_->GetSeverity())) {
+@@ -469,6 +473,11 @@ void LogMessage::LogLine(const char* file, unsigned int line, LogId id, LogSever
+   }
+ }
+ 
++void LogMessage::LogLine(const char* file, unsigned int line, LogId id, LogSeverity severity,
++                         const char* message) {
++  LogLine(file, line, id, severity, nullptr, message);
++}
++
+ LogSeverity GetMinimumLogSeverity() {
+     return gMinimumLogSeverity;
+ }
+-- 
+2.23.0
+
