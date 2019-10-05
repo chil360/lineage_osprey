@@ -9,16 +9,8 @@ echo "TOP: $TOP"
 # PATCHES                                                   #
 #############################################################
 
-cd system/core
-git am -3 $TOP/0001-Revert-Remove-unused-logging-symbols.patch
-cd $TOP
-
 cd vendor/lineage
 git am -3 $TOP/0001-DNM-Turn-off-secure-ADB.patch
-cd $TOP
-
-cd vendor/qcom/opensource/audio
-git am -3 $TOP/0001-Revert-audio-Retrieve-feature-flag-from-config-store.patch
 cd $TOP
 
 #############################################################
@@ -30,9 +22,6 @@ cd $TOP
 ### art
 repopick 256444
 
-### build/make
-repopick 257171
-
 ### build/soong
 repopick 256886
 
@@ -43,7 +32,7 @@ repopick 256250
 repopick 256308
 
 ### frameworks/av
-repopick 256887-256894 256896-256899
+repopick 256899
 
 ### hardware/qcom/bt
 repopick -P hardware/qcom/bt 256355
@@ -61,14 +50,13 @@ repopick 258607-258609
 repopick -P hardware/qcom/wlan 256362
 repopick -t ten-wlan-caf
 
-### vendor/lineage
-repopick 256900
+### Backuptool
+repopick 257172 257177
+repopick -t ten-aonly-backuptool
 
 ### Fixes & Features
-repopick 258476
-repopick -t ten-wake-on-plug
 repopick 259362
 repopick -t ten-linked-volumes
-repopick 258767 258769 258768  #ten-buttons
 repopick -t ten-visualizer
+
 
