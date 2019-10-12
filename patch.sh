@@ -20,7 +20,7 @@ cd $TOP
 # Example: repopick [CHANGE_NUMBER]
 
 ### art
-repopick 256444
+repopick 259265
 
 ### build/soong
 repopick 256886
@@ -48,15 +48,12 @@ repopick 258607-258609
 
 ### hardware/qcom-caf/wlan
 repopick -P hardware/qcom/wlan 256362
-repopick -t ten-wlan-caf
 
 ### Backuptool
 repopick 257172 257177
 repopick -t ten-aonly-backuptool
 
 ### Fixes & Features
-repopick 259362
-repopick -t ten-linked-volumes
 repopick -t ten-visualizer
-
+repopick -t ten-messaging
 
