@@ -9,9 +9,18 @@
 
 	<project name="LineageOS/android_packages_resources_devicesettings" path="packages/resources/devicesettings" remote="github" revision="lineage-17.0" />
 	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-17.0" />
-	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-16.0" />
+	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-17.0" />
 
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
+
+	<!-- AOSP FM -->
+	<remove-project name="LineageOS/android_vendor_qcom_opensource_fm-commonsys" />
+	<project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" />
+	<project path="vendor/qcom/opensource/libfmjni" name="LineageOS/android_vendor_qcom_opensource_libfmjni" groups="qcom,pdk-qcom" />
+
+	<!-- Trebuchet -->
+	<remove-project name="platform/packages/apps/Launcher3" />
+	<project path="packages/apps/Trebuchet" name="LineageOS/android_packages_apps_Trebuchet" />
 
 </manifest>
