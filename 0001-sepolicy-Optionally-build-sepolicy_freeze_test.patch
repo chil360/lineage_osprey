@@ -1,0 +1,48 @@
+From cb8fc8defa7e455f048c1845370a5a69fd590fad Mon Sep 17 00:00:00 2001
+From: Nick Reuter <nreuter85@gmail.com>
+Date: Mon, 6 Aug 2018 22:48:20 -0500
+Subject: [PATCH 1/2] sepolicy: Optionally build sepolicy_freeze_test
+
+ * Disable sepolicy_freeze_test unless the variable
+    PLATFORM_SEPOLICY_VERSION_TEST is set to true
+
+ * Needed to modify public sepolicy rules, example:
+    "Files system/sepolicy/prebuilts/api/28.0/public/name.te
+    and system/sepolicy/public/name.te differ"
+
+Change-Id: I8a333d492d0c2953ff35e81600dd7fe316f608ec
+Signed-off-by: Adrian DC <radian.dc@gmail.com>
+---
+ Android.mk | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Android.mk b/Android.mk
+index dadd7b0a..b6fe2a0e 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -248,9 +248,11 @@ endif
+ endif
+ 
+ ifneq ($(PLATFORM_SEPOLICY_VERSION),$(TOT_SEPOLICY_VERSION))
++ifeq ($(PLATFORM_SEPOLICY_VERSION_TEST),true)
+ LOCAL_REQUIRED_MODULES += \
+     sepolicy_freeze_test \
+ 
++endif # ($(PLATFORM_SEPOLICY_VERSION_TEST),true)
+ endif # ($(PLATFORM_SEPOLICY_VERSION),$(TOT_SEPOLICY_VERSION))
+ 
+ include $(BUILD_PHONY_PACKAGE)
+@@ -1365,8 +1367,10 @@ $(LOCAL_BUILT_MODULE): PRIVATE_BASE_PLAT_PUBLIC_PREBUILT := $(base_plat_public_p
+ $(LOCAL_BUILT_MODULE): PRIVATE_BASE_PLAT_PRIVATE_PREBUILT := $(base_plat_private_prebuilt)
+ $(LOCAL_BUILT_MODULE): $(all_frozen_files)
+ ifneq ($(PLATFORM_SEPOLICY_VERSION),$(TOT_SEPOLICY_VERSION))
++ifeq ($(PLATFORM_SEPOLICY_VERSION_TEST),true)
+ 	@diff -rq -x bug_map $(PRIVATE_BASE_PLAT_PUBLIC_PREBUILT) $(PRIVATE_BASE_PLAT_PUBLIC)
+ 	@diff -rq -x bug_map $(PRIVATE_BASE_PLAT_PRIVATE_PREBUILT) $(PRIVATE_BASE_PLAT_PRIVATE)
++endif # ($(PLATFORM_SEPOLICY_VERSION_TEST),true)
+ endif # ($(PLATFORM_SEPOLICY_VERSION),$(TOT_SEPOLICY_VERSION))
+ 	$(hide) touch $@
+ 
+-- 
+2.23.0
+
