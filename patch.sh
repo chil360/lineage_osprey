@@ -13,11 +13,6 @@ cd vendor/lineage
 git am -3 $TOP/0001-DNM-Turn-off-secure-ADB.patch
 cd $TOP
 
-cd system/sepolicy
-git am -3 $TOP/0001-sepolicy-Optionally-build-sepolicy_freeze_test.patch
-git am -3 $TOP/0002-Fix-storaged-access-to-sys-block-mmcblk0-stat-after-.patch
-cd $TOP
-
 #############################################################
 # CHERRYPICKS                                               #
 #############################################################
@@ -43,10 +38,7 @@ repopick -t ten-aonly-backuptool
 ### Fixes & Features
 repopick -t ten-visualizer
 
-### Snap
-repopick -t ten-snap
-repopick 262413
-
 ### Sepolicy
-repopick -t ten-legacy-qcom-sepolicy
+repopick -P system/sepolicy 264230 264057 264266 264267
+repopick 261512
 

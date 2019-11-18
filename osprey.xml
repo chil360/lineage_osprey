@@ -14,7 +14,4 @@
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
 
-	<!-- Snap -->
-	<project name="LineageOS/android_packages_apps_Snap" path="packages/apps/Snap" remote="github" revision="lineage-17.0" />
-
 </manifest>
