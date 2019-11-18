@@ -17,7 +17,4 @@
 	<!-- Snap -->
 	<project name="LineageOS/android_packages_apps_Snap" path="packages/apps/Snap" remote="github" revision="lineage-17.0" />
 
-	<!-- Sepolicy -->
-	<project path="device/lineage/sepolicy" name="LineageOS/android_device_lineage_sepolicy" remote="github" revision="lineage-17.0" />
-
 </manifest>

@@ -36,15 +36,9 @@ repopick 256899
 ### hardware/lineage/interfaces
 repopick 256420
 
-### device/lineage/sepolicy
-repopick 257100
-
 ### Backuptool
 repopick 257172 257177
 repopick -t ten-aonly-backuptool
-
-### Optimizations
-repopick 262889
 
 ### Fixes & Features
 repopick -t ten-visualizer
