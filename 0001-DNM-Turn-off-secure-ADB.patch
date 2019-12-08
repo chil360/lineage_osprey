@@ -1,20 +1,19 @@
-From dc0fb11828f8c505de6ee3106a0004ede4e4819c Mon Sep 17 00:00:00 2001
+From 0de8463876415035cf0017ad1ca34c5ee82f6e1d Mon Sep 17 00:00:00 2001
 From: Kyle Harrison <khwebmail@gmail.com>
-Date: Wed, 11 Sep 2019 14:39:05 +0100
+Date: Sun, 15 Dec 2019 12:21:05 +0000
 Subject: [PATCH] [DNM] Turn off secure ADB
 
-Change-Id: Ib0f405f7e8d94ef18fe7ae28a27f8210824154c4
 ---
  config/common.mk | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/config/common.mk b/config/common.mk
-index 837e11ef..ed2987ff 100644
+index 6da2c44f..ac13264e 100644
 --- a/config/common.mk
 +++ b/config/common.mk
-@@ -26,13 +26,13 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
- PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.dun.override=0
- endif
+@@ -18,13 +18,13 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+     ro.config.notification_sound=Argon.ogg \
+     ro.config.alarm_alert=Hassium.ogg
  
 -ifeq ($(TARGET_BUILD_VARIANT),eng)
 +#ifeq ($(TARGET_BUILD_VARIANT),eng)
@@ -31,5 +30,5 @@ index 837e11ef..ed2987ff 100644
  # Backup Tool
  PRODUCT_COPY_FILES += \
 -- 
-2.23.0
+2.24.1
 

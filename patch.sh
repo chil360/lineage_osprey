@@ -19,15 +19,6 @@ cd $TOP
 
 # Example: repopick [CHANGE_NUMBER]
 
-### build/soong
-repopick 256886
-
-### external/tinycompress
-repopick 256308
-
-### frameworks/av
-repopick 256899
-
 ### hardware/lineage/interfaces
 repopick 256420
 
