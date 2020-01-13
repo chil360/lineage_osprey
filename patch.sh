@@ -22,9 +22,8 @@ cd $TOP
 ### hardware/lineage/interfaces
 repopick 256420
 
-### Backuptool
-repopick 257172 257177
-repopick -t ten-aonly-backuptool
+### build/make
+repopick 257177
 
 ### Fixes & Features
 repopick -t ten-visualizer

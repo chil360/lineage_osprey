@@ -12,12 +12,11 @@ What's working?
  - Wifi
  - Bluetooth
  - GPS
- - Camera (apart from HDR)
+ - Camera (including HDR in Snap)
  - Camcorder
  - VoLTE (credits to @nicorg2515)
 
 What's not working
- - Camera HDR - doesn't work in Camera2 (same as in P) but Snap will probably work when it gets reinstated.
  - SELinux is Permissive
 
 
