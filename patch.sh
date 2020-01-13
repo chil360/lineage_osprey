@@ -31,5 +31,5 @@ repopick -t ten-visualizer
 
 ### Sepolicy
 repopick -P system/sepolicy 264230 264057 264266 264267 264406 264432
-repopick 261512
+repopick -P device/qcom/sepolicy-legacy 261512
 

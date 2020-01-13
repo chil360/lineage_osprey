@@ -2,14 +2,14 @@
 <manifest>
 	<remote fetch="https://github.com/chil360" name="chil360"/>
 
-	<project name="android_device_motorola_osprey" path="device/motorola/osprey" remote="chil360" revision="lineage-17.0" />
-	<project name="android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="chil360" revision="lineage-17.0" />
+	<project name="android_device_motorola_osprey" path="device/motorola/osprey" remote="chil360" revision="lineage-17.1" />
+	<project name="android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="chil360" revision="lineage-17.1" />
 	<project name="android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="chil360" revision="10.0" />
 	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="10.0" />
 
-	<project name="LineageOS/android_packages_resources_devicesettings" path="packages/resources/devicesettings" remote="github" revision="lineage-17.0" />
-	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-17.0" />
-	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-17.0" />
+	<project name="LineageOS/android_packages_resources_devicesettings" path="packages/resources/devicesettings" remote="github" revision="lineage-17.1" />
+	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-17.1" />
+	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-17.1" />
 
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
