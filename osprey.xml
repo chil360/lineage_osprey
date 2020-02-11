@@ -7,7 +7,6 @@
 	<project name="android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="chil360" revision="10.0" />
 	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="10.0" />
 
-	<project name="LineageOS/android_packages_resources_devicesettings" path="packages/resources/devicesettings" remote="github" revision="lineage-17.1" />
 	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-17.1" />
 	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-17.1" />
 
