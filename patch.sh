@@ -16,9 +16,6 @@ echo "TOP: $TOP"
 
 # Example: repopick [CHANGE_NUMBER]
 
-### Fixes & Features
-repopick -t ten-visualizer
-
 ### Sepolicy
 repopick -P system/sepolicy 264406
 
