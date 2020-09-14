@@ -1,21 +1,12 @@
 
-Lineage 17.1 for Osprey
+Lineage 18.0 for Osprey
 =======================
 
 Current Status
 --------------
 
 What's working?
- - It boots!
- - RIL
- - Mobile data
- - Wifi
- - Bluetooth
- - GPS
- - Camera (including HDR in Snap)
- - Camcorder
- - VoLTE (credits to @nicorg2515)
- - SELinux Enforcing
+ - Nothing yet!
 
 
 Download
@@ -32,7 +23,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b lineage-17.1
+    repo init -u git://github.com/LineageOS/android.git -b lineage-18.0
 
 Now create a local_manifests directory
 
