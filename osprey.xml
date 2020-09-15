@@ -13,4 +13,46 @@
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
 
+	<!-- BRINGUP: LOS Repos -->
+	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-17.1" />
+
+	<project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" />
+
+	<project path="hardware/qcom-caf/common" name="LineageOS/android_hardware_qcom-caf_common" groups="qcom,pdk-qcom" >
+		<!-- add guard for AOSP hardware/qcom dir -->
+		<linkfile src="os_pickup_aosp.mk" dest="hardware/qcom/Android.mk" />
+		<!-- add guards for CAF repositories -->
+		<linkfile src="os_pickup.mk" dest="hardware/qcom-caf/msm8916/Android.mk" />
+ 	</project>
+	<project path="hardware/qcom-caf/bt" name="LineageOS/android_hardware_qcom_bt" groups="qcom,pdk-qcom" revision="lineage-17.1-caf" />
+	<project path="hardware/qcom-caf/thermal" name="LineageOS/android_hardware_qcom_thermal" groups="qcom,pdk-qcom" revision="lineage-17.1" />
+	<project path="hardware/qcom-caf/vr" name="LineageOS/android_hardware_qcom_vr" groups="qcom,pdk-qcom" revision="lineage-17.1" />
+	<project path="hardware/qcom-caf/wlan" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk-qcom" revision="lineage-17.1-caf" />
+
+	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-17.1-caf-msm8916" />
+    <project path="hardware/qcom-caf/msm8916/display" name="LineageOS/android_hardware_qcom_display" remote="github" revision="lineage-17.1-caf-msm8916" />
+    <project path="hardware/qcom-caf/msm8916/media" name="LineageOS/android_hardware_qcom_media" remote="github" revision="lineage-17.1-caf-msm8916" />
+
+	<remove-project name="platform/packages/apps/ThemePicker" />
+	<project path="packages/apps/ThemePicker" name="LineageOS/android_packages_apps_ThemePicker" />
+	<project path="packages/resources/devicesettings" name="LineageOS/android_packages_resources_devicesettings" remote="github" revision="lineage-17.1" />
+
+	<project path="prebuilts/tools-lineage" name="LineageOS/android_prebuilts_tools-lineage" clone-depth="1" />
+
+	<project path="system/tools/dtbtool" name="LineageOS/android_system_tools_dtbtool" remote="github" revision="lineage-17.1" />
+
+	<project path="vendor/codeaurora/telephony" name="LineageOS/android_vendor_codeaurora_telephony" remote="github" revision="lineage-17.1" />
+    <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" />
+	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" remote="github" revision="lineage-17.1" />
+	<project path="vendor/qcom/opensource/interfaces" name="LineageOS/android_vendor_qcom_opensource_interfaces" remote="github" revision="lineage-17.1" />
+	<project path="vendor/qcom/opensource/power" name="LineageOS/android_vendor_qcom_opensource_power" remote="github" revision="lineage-17.1" />
+
+	<!-- BRINGUP: AOSP Repos -->
+    <project path="packages/apps/Calendar" name="platform/packages/apps/Calendar" remote="aosp" />
+    <project path="packages/apps/Launcher3" name="platform/packages/apps/Launcher3" remote="aosp" />
+
+	<!-- BRINGUP: GCC Host Toolchain from AOSP Q -->
+    <remove-project name="platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" />
+    <project path="prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" name="platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" groups="pdk,linux" clone-depth="1" remote="aosp" revision="refs/tags/android-10.0.0_r45" />
+
 </manifest>

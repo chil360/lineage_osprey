@@ -5,14 +5,30 @@ Lineage 18.0 for Osprey
 Current Status
 --------------
 
-What's working?
- - Nothing yet!
+What's working ?
+ - It boots!
+ - Wifi
+ - RIL
+ - Mobile Data
+ - Audio
 
+Not Working / Not Tested ?
+ - Bluetooth (functional but untested)
+ - Camera & Camcorder (Camera shim needs updating)
+ - GPS (not tested)
+ - VoLTE (can't test)
+ - SELinux Enforcing
+
+Notes:
+ - Need to manually run the extract_firmware.sh script after install and before reboot. Commits to do this in releasetools/updater not added and not working yet.
+ - ADB is not working - constantly 'offline'
+ - Currently it's extremely laggy!
 
 Download
 --------
 
-My current builds are available [here](https://chil360.github.io/).
+It's not ready for public testing so no builds are availble to download at present.
+Builds will available [here](https://chil360.github.io/) when it's ready for public testing.
 
 Build Instructions
 ------------------

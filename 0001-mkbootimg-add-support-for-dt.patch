@@ -1,0 +1,59 @@
+From 52397c42ce110204139a2f6d5d867e770efc13d0 Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Sat, 12 Sep 2020 17:09:37 +0100
+Subject: [PATCH] mkbootimg: add support for --dt
+
+Change-Id: I19f149fac693420cf1f630b51293bbd3650a1b59
+---
+ mkbootimg.py | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/mkbootimg.py b/mkbootimg.py
+index 00a4623..c5ff1e7 100644
+--- a/mkbootimg.py
++++ b/mkbootimg.py
+@@ -126,7 +126,7 @@ def write_header(args):
+         final_second_offset,                            # physical load addr
+         args.base + args.tags_offset,                   # physical addr for kernel tags
+         args.pagesize,                                  # flash page size we assume
+-        args.header_version,                            # version of bootimage header
++        max(args.header_version, filesize(args.dt)),    # version of bootimage header or dt size in bytes
+         (args.os_version << 11) | args.os_patch_level)) # os version and patch level
+     args.output.write(pack('16s', args.board.encode())) # asciiz product name
+     args.output.write(pack('512s', args.cmdline[:512].encode()))
+@@ -135,6 +135,7 @@ def write_header(args):
+     update_sha(sha, args.kernel)
+     update_sha(sha, args.ramdisk)
+     update_sha(sha, args.second)
++    update_sha(sha, args.dt)
+ 
+     if args.header_version > 0:
+         update_sha(sha, args.recovery_dtbo)
+@@ -263,17 +264,23 @@ def parse_cmdline():
+                         action='store_true')
+     parser.add_argument('--header_version', help='boot image header version', type=parse_int,
+                         default=0)
++    parser.add_argument('--dt', help='path to the device tree image', type=FileType('rb'))
+     parser.add_argument('-o', '--output', help='output file name', type=FileType('wb'))
+     parser.add_argument('--vendor_boot', help='vendor boot output file name', type=FileType('wb'))
+     parser.add_argument('--vendor_ramdisk', help='path to the vendor ramdisk', type=FileType('rb'))
+ 
+-    return parser.parse_args()
++    args = parser.parse_args()
++    if args.header_version > 0 and args.dt != None:
++        raise ValueError('header_version and dt cannot be set at the same time')
++
++    return args
+ 
+ 
+ def write_data(args, pagesize):
+     write_padded_file(args.output, args.kernel, pagesize)
+     write_padded_file(args.output, args.ramdisk, pagesize)
+     write_padded_file(args.output, args.second, pagesize)
++    write_padded_file(args.output, args.dt, args.pagesize)
+ 
+     if args.header_version > 0 and args.header_version < 3:
+         write_padded_file(args.output, args.recovery_dtbo, pagesize)
+-- 
+2.28.0
+
