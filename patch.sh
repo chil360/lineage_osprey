@@ -48,6 +48,7 @@ apply_patch $TOP/bootable/recovery $PATCH_DIR/0001-Disable-install_recovery-scri
 apply_patch $TOP/vendor/lineage $PATCH_DIR/0001-TEMP-Disable-ADB-authentication.patch
 apply_patch $TOP/hardware/qcom-caf/wlan $PATCH_DIR/0001-Disable-Wformat-errors.patch
 apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Reland-libcutils-remove-unused-jstring.h.patch
+apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Move-adbd-s-legacy-USB-implementation-to-fast.patch
 
 #############################################################
 # CHERRYPICKS                                               #

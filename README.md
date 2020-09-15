@@ -21,7 +21,6 @@ Not Working / Not Tested ?
 
 Notes:
  - Need to manually run the extract_firmware.sh script after install and before reboot. Commits to do this in releasetools/updater not added and not working yet.
- - ADB is not working - constantly 'offline'
  - Currently it's extremely laggy!
 
 Download
