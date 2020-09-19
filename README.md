@@ -11,17 +11,16 @@ What's working ?
  - RIL
  - Mobile Data
  - Audio
+ - Camera
 
 Not Working / Not Tested ?
  - Bluetooth (functional but untested)
- - Camera & Camcorder (Camera shim needs updating)
+ - Camcorder
  - GPS (not tested)
+ - Media support
  - VoLTE (can't test)
  - SELinux Enforcing
 
-Notes:
- - Need to manually run the extract_firmware.sh script after install and before reboot. Commits to do this in releasetools/updater not added and not working yet.
- - Currently it's extremely laggy!
 
 Download
 --------

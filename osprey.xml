@@ -14,7 +14,19 @@
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
 
 	<!-- BRINGUP: LOS Repos -->
+	<project path="external/bash" name="LineageOS/android_external_bash" />
 	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-17.1" />
+	<project path="external/exfatprogs" name="LineageOS/android_external_exfatprogs" />
+	<project path="external/htop" name="LineageOS/android_external_htop" />
+	<project path="external/libncurses" name="LineageOS/android_external_libncurses" />
+	<project path="external/nano" name="LineageOS/android_external_nano" />
+	<project path="external/ntfs-3g" name="LineageOS/android_external_ntfs-3g" />
+	<project path="external/p7zip" name="LineageOS/android_external_p7zip" />
+	<project path="external/pigz" name="LineageOS/android_external_pigz" />
+	<project path="external/rsync" name="LineageOS/android_external_rsync" />
+	<project path="external/unrar" name="LineageOS/android_external_unrar" />
+	<project path="external/vim" name="LineageOS/android_external_vim" />
+	<project path="external/zip" name="LineageOS/android_external_zip" />
 
 	<project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" />
 
@@ -33,8 +45,10 @@
     <project path="hardware/qcom-caf/msm8916/display" name="LineageOS/android_hardware_qcom_display" remote="github" revision="lineage-17.1-caf-msm8916" />
     <project path="hardware/qcom-caf/msm8916/media" name="LineageOS/android_hardware_qcom_media" remote="github" revision="lineage-17.1-caf-msm8916" />
 
+	<project path="packages/apps/Etar" name="LineageOS/android_packages_apps_Etar" />
 	<remove-project name="platform/packages/apps/ThemePicker" />
 	<project path="packages/apps/ThemePicker" name="LineageOS/android_packages_apps_ThemePicker" />
+	<project path="packages/apps/Trebuchet" name="LineageOS/android_packages_apps_Trebuchet" />
 	<project path="packages/resources/devicesettings" name="LineageOS/android_packages_resources_devicesettings" remote="github" revision="lineage-17.1" />
 
 	<project path="prebuilts/tools-lineage" name="LineageOS/android_prebuilts_tools-lineage" clone-depth="1" />
@@ -46,10 +60,6 @@
 	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" remote="github" revision="lineage-17.1" />
 	<project path="vendor/qcom/opensource/interfaces" name="LineageOS/android_vendor_qcom_opensource_interfaces" remote="github" revision="lineage-17.1" />
 	<project path="vendor/qcom/opensource/power" name="LineageOS/android_vendor_qcom_opensource_power" remote="github" revision="lineage-17.1" />
-
-	<!-- BRINGUP: AOSP Repos -->
-    <project path="packages/apps/Calendar" name="platform/packages/apps/Calendar" remote="aosp" />
-    <project path="packages/apps/Launcher3" name="platform/packages/apps/Launcher3" remote="aosp" />
 
 	<!-- BRINGUP: GCC Host Toolchain from AOSP Q -->
     <remove-project name="platform/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8" />
