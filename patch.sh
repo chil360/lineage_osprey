@@ -61,19 +61,14 @@ function apply_patch {
 ./vendor/lineage/build/tools/repopick.py -P  bootable/recovery -f 286438
 
 ## Build/Make
-./vendor/lineage/build/tools/repopick.py  -f 256500 286188 286195 286189 286650
+./vendor/lineage/build/tools/repopick.py  -f 256500 286188 286195 286189 286650 287090
 
 ## external/tinycompress
 ./vendor/lineage/build/tools/repopick.py -P external/tinycompress -f 286162 286163
 
 ## frameworks/av
 ./vendor/lineage/build/tools/repopick.py  -P frameworks/av -f 286170 286171
-
-## hardware/libhardware
-./vendor/lineage/build/tools/repopick.py  -P hardware/libhardware -f 286177
-
-## hardware/libhardware_legacy
-./vendor/lineage/build/tools/repopick.py  -P hardware/libhardware_legacy 286178
+./vendor/lineage/build/tools/repopick.py  -P frameworks/av -f 256887-256888 256890-256894
 
 ## packages/apps/Etar
 ./vendor/lineage/build/tools/repopick.py -f 285805 285806
@@ -85,18 +80,19 @@ function apply_patch {
 ## system/core
 ./vendor/lineage/build/tools/repopick.py -f 286235 286236
 
+## system/tools/mkbootimg
+./vendor/lineage/build/tools/repopick.py -P system/tools/mkbootimg -f 287107
+
 #################################################################
 # PATCHES
 #
 # Example: apply_patch [REPO_DIR] [PATCH_FILE]
 #################################################################
 
-apply_patch $TOP/system/tools/mkbootimg $PATCH_DIR/0001-mkbootimg-add-support-for-dt.patch
 apply_patch $TOP/bootable/recovery $PATCH_DIR/0001-Disable-install_recovery-script.patch
 apply_patch $TOP/vendor/lineage $PATCH_DIR/0001-TEMP-Disable-ADB-authentication.patch
 apply_patch $TOP/hardware/qcom-caf/wlan $PATCH_DIR/0001-Disable-Wformat-errors.patch
 apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Reland-libcutils-remove-unused-jstring.h.patch
 apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Move-adbd-s-legacy-USB-implementation-to-fast.patch
-apply_patch $TOP/build/make $PATCH_DIR/0001-build-Add-support-for-device-tree-in-boot.img.patch
 apply_patch $TOP/build/make $PATCH_DIR/0001-releasetools-ota_from_target_files-add-FullOTA_PostV.patch
 apply_patch $TOP/build/make $PATCH_DIR/0002-build-ota-Support-for-install-tools-in-tmp-install.patch
