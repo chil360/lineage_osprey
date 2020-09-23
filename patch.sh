@@ -61,7 +61,7 @@ function apply_patch {
 ./vendor/lineage/build/tools/repopick.py -P  bootable/recovery -f 286438
 
 ## Build/Make
-./vendor/lineage/build/tools/repopick.py  -f 256500 286188 286195 286189 286650 287090
+./vendor/lineage/build/tools/repopick.py  -f 256500 286189 286650 287090
 
 ## external/tinycompress
 ./vendor/lineage/build/tools/repopick.py -P external/tinycompress -f 286162 286163
@@ -82,6 +82,9 @@ function apply_patch {
 
 ## system/tools/mkbootimg
 ./vendor/lineage/build/tools/repopick.py -P system/tools/mkbootimg -f 287107
+
+## vendor/lineage
+./vendor/lineage/build/tools/repopick.py -P vendor/lineage -f 287141
 
 #################################################################
 # PATCHES
