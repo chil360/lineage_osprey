@@ -49,13 +49,12 @@ function apply_patch {
 ./vendor/lineage/build/tools/repopick.py -t eleven-build-warnings
 ./vendor/lineage/build/tools/repopick.py -t eleven-build
 ./vendor/lineage/build/tools/repopick.py -t eleven-build-bringup
-./vendor/lineage/build/tools/repopick.py -t 11-nproc
 
 ## Art
 ./vendor/lineage/build/tools/repopick.py -P art -f 286185
 
 ## bionic
-./vendor/lineage/build/tools/repopick.py -P bionic -f 286142 286007 286301-286305
+./vendor/lineage/build/tools/repopick.py -P bionic -f 286007 286301-286305
 
 ## bootable/recovery
 ./vendor/lineage/build/tools/repopick.py -P  bootable/recovery -f 286438
@@ -63,28 +62,47 @@ function apply_patch {
 ## Build/Make
 ./vendor/lineage/build/tools/repopick.py  -f 256500 286189 286650 287090
 
-## external/tinycompress
-./vendor/lineage/build/tools/repopick.py -P external/tinycompress -f 286162 286163
-
 ## frameworks/av
 ./vendor/lineage/build/tools/repopick.py  -P frameworks/av -f 286170 286171
 ./vendor/lineage/build/tools/repopick.py  -P frameworks/av -f 256887-256888 256890-256894
+
+## frameworks/native
+./vendor/lineage/build/tools/repopick.py  -P frameworks/native -f 287618
+
+## hardware/qcom-caf/wlan
+./vendor/lineage/build/tools/repopick.py 287117-287120 287123-287126
 
 ## packages/apps/Etar
 ./vendor/lineage/build/tools/repopick.py -f 285805 285806
 
 ## packages/apps/ThemePicker
-./vendor/lineage/build/tools/repopick.py -f 286365
 ./vendor/lineage/build/tools/repopick.py -t eleven-theme_picker
 
 ## system/core
-./vendor/lineage/build/tools/repopick.py -f 286235 286236
+./vendor/lineage/build/tools/repopick.py -f 286236
 
 ## system/tools/mkbootimg
 ./vendor/lineage/build/tools/repopick.py -P system/tools/mkbootimg -f 287107
 
-## vendor/lineage
-./vendor/lineage/build/tools/repopick.py -P vendor/lineage -f 287141
+## system/vold
+./vendor/lineage/build/tools/repopick.py -t eleven-vold
+
+## vendor_qcom_opensource_interfaces
+./vendor/lineage/build/tools/repopick.py -f 287010
+
+## packages/apps/LineageParts
+./vendor/lineage/build/tools/repopick.py 286435 286449 286412
+
+## Lineage SDK
+./vendor/lineage/build/tools/repopick.py -t eleven-sdk-bringup
+
+## QCOM Encryption
+##./vendor/lineage/build/tools/repopick.py -t eleven-qcom-encryption
+
+## More picks for Lineage SDK bringup
+./vendor/lineage/build/tools/repopick.py -t eleven-display-rotation
+./vendor/lineage/build/tools/repopick.py 286439 286451 286390 286452 286444
+./vendor/lineage/build/tools/repopick.py -t eleven-linked-volumes
 
 #################################################################
 # PATCHES
@@ -94,7 +112,6 @@ function apply_patch {
 
 apply_patch $TOP/bootable/recovery $PATCH_DIR/0001-Disable-install_recovery-script.patch
 apply_patch $TOP/vendor/lineage $PATCH_DIR/0001-TEMP-Disable-ADB-authentication.patch
-apply_patch $TOP/hardware/qcom-caf/wlan $PATCH_DIR/0001-Disable-Wformat-errors.patch
 apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Reland-libcutils-remove-unused-jstring.h.patch
 apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Move-adbd-s-legacy-USB-implementation-to-fast.patch
 apply_patch $TOP/build/make $PATCH_DIR/0001-releasetools-ota_from_target_files-add-FullOTA_PostV.patch

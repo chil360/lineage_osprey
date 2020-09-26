@@ -16,12 +16,6 @@
 	<!-- BRINGUP: LOS Repos -->
 	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-17.1" />
 
-    <remove-project name="platform/hardware/libhardware" />
-    <project path="hardware/libhardware" name="LineageOS/android_hardware_libhardware" />
-    <remove-project name="platform/hardware/libhardware_legacy" groups="pdk" />
-    <project path="hardware/libhardware_legacy" name="LineageOS/android_hardware_libhardware_legacy" />
-	<project path="hardware/lineage/interfaces" name="LineageOS/android_hardware_lineage_interfaces" />
-
 	<project path="hardware/qcom-caf/common" name="LineageOS/android_hardware_qcom-caf_common" groups="qcom,pdk-qcom" >
 		<!-- add guard for AOSP hardware/qcom dir -->
 		<linkfile src="os_pickup_aosp.mk" dest="hardware/qcom/Android.mk" />
@@ -31,26 +25,18 @@
 	<project path="hardware/qcom-caf/bt" name="LineageOS/android_hardware_qcom_bt" groups="qcom,pdk-qcom" revision="lineage-17.1-caf" />
 	<project path="hardware/qcom-caf/thermal" name="LineageOS/android_hardware_qcom_thermal" groups="qcom,pdk-qcom" revision="lineage-17.1" />
 	<project path="hardware/qcom-caf/vr" name="LineageOS/android_hardware_qcom_vr" groups="qcom,pdk-qcom" revision="lineage-17.1" />
-	<project path="hardware/qcom-caf/wlan" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk-qcom" revision="lineage-17.1-caf" />
+	<project path="hardware/qcom-caf/wlan" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk-qcom" revision="lineage-18.0-caf" />
 
 	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-17.1-caf-msm8916" />
     <project path="hardware/qcom-caf/msm8916/display" name="LineageOS/android_hardware_qcom_display" remote="github" revision="lineage-17.1-caf-msm8916" />
     <project path="hardware/qcom-caf/msm8916/media" name="LineageOS/android_hardware_qcom_media" remote="github" revision="lineage-17.1-caf-msm8916" />
 
 	<project path="packages/apps/Etar" name="LineageOS/android_packages_apps_Etar" />
-	<remove-project name="platform/packages/apps/ThemePicker" />
-	<project path="packages/apps/ThemePicker" name="LineageOS/android_packages_apps_ThemePicker" />
-	<project path="packages/apps/Trebuchet" name="LineageOS/android_packages_apps_Trebuchet" />
-	<project path="packages/resources/devicesettings" name="LineageOS/android_packages_resources_devicesettings" remote="github" revision="lineage-17.1" />
-
-	<project path="prebuilts/tools-lineage" name="LineageOS/android_prebuilts_tools-lineage" clone-depth="1" />
 
 	<project path="system/tools/dtbtool" name="LineageOS/android_system_tools_dtbtool" remote="github" revision="lineage-17.1" />
 
-	<project path="vendor/codeaurora/telephony" name="LineageOS/android_vendor_codeaurora_telephony" remote="github" revision="lineage-17.1" />
-    <project path="vendor/lineage" name="LineageOS/android_vendor_lineage" />
-	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" remote="github" revision="lineage-17.1" />
-	<project path="vendor/qcom/opensource/interfaces" name="LineageOS/android_vendor_qcom_opensource_interfaces" remote="github" revision="lineage-17.1" />
+	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" />
+	<project path="vendor/qcom/opensource/interfaces" name="LineageOS/android_vendor_qcom_opensource_interfaces" />
 	<project path="vendor/qcom/opensource/power" name="LineageOS/android_vendor_qcom_opensource_power" remote="github" revision="lineage-17.1" />
 
 </manifest>
