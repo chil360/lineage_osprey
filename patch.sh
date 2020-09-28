@@ -112,7 +112,6 @@ function apply_patch {
 
 apply_patch $TOP/bootable/recovery $PATCH_DIR/0001-Disable-install_recovery-script.patch
 apply_patch $TOP/vendor/lineage $PATCH_DIR/0001-TEMP-Disable-ADB-authentication.patch
-apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Reland-libcutils-remove-unused-jstring.h.patch
 apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Move-adbd-s-legacy-USB-implementation-to-fast.patch
 apply_patch $TOP/build/make $PATCH_DIR/0001-releasetools-ota_from_target_files-add-FullOTA_PostV.patch
 apply_patch $TOP/build/make $PATCH_DIR/0002-build-ota-Support-for-install-tools-in-tmp-install.patch
