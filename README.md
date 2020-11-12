@@ -12,15 +12,15 @@ What's working ?
  - Mobile Data
  - Audio
  - Camera
-
-Not Working / Not Tested ?
- - Bluetooth (functional but untested)
+ - Bluetooth
  - Camcorder
- - GPS (not tested)
+ - GPS
  - Media support
- - VoLTE (can't test)
+ - VoLTE
  - SELinux Enforcing
 
+Not Working / Not Tested ?
+ - Safetynet
 
 Download
 --------

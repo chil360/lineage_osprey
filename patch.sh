@@ -42,70 +42,38 @@ function apply_patch {
 #################################################################
 # CHERRYPICKS
 #
-# Example: repopick [CHANGE_NUMBER]
+# Example: ./vendor/lineage/build/tools/repopick.py [CHANGE_NUMBER]
 #################################################################
 
-## Build Bringup
-./vendor/lineage/build/tools/repopick.py -t eleven-build-warnings
-./vendor/lineage/build/tools/repopick.py -t eleven-build
-./vendor/lineage/build/tools/repopick.py -t eleven-build-bringup
-
-## Art
+## eleven-ultralegacy-devices
 ./vendor/lineage/build/tools/repopick.py -P art -f 286185
+./vendor/lineage/build/tools/repopick.py -P external/perfetto 287706
+./vendor/lineage/build/tools/repopick.py -P system/core 289133
+./vendor/lineage/build/tools/repopick.py -P vendor/lineage 289841
 
 ## bionic
-./vendor/lineage/build/tools/repopick.py -P bionic -f 286007 286301-286305
+./vendor/lineage/build/tools/repopick.py -P bionic -f 286304 286305
 
 ## bootable/recovery
-./vendor/lineage/build/tools/repopick.py -P  bootable/recovery -f 286438
-
-## Build/Make
-./vendor/lineage/build/tools/repopick.py  -f 256500 286189 286650 287090 288021-288028
+./vendor/lineage/build/tools/repopick.py -P  bootable/recovery -f 286351
 
 ## frameworks/av
-./vendor/lineage/build/tools/repopick.py  -P frameworks/av -f 286170 286171
-./vendor/lineage/build/tools/repopick.py  -P frameworks/av -f 256887-256888 256890-256894
-
-## frameworks/native
-./vendor/lineage/build/tools/repopick.py  -P frameworks/native -f 287618
+./vendor/lineage/build/tools/repopick.py -t eleven-legacy-camera
 
 ## hardware/qcom-caf/wlan
-./vendor/lineage/build/tools/repopick.py 287117-287120 287123-287126
-
-## packages/apps/Etar
-./vendor/lineage/build/tools/repopick.py -f 285805 285806
-
-## packages/apps/ThemePicker
-./vendor/lineage/build/tools/repopick.py -t eleven-theme_picker
-
-## system/core
-./vendor/lineage/build/tools/repopick.py -f 286236
-
-## system/tools/mkbootimg
-./vendor/lineage/build/tools/repopick.py -P system/tools/mkbootimg -f 287107
+./vendor/lineage/build/tools/repopick.py 287125-287126 290021
 
 ## system/vold
 ./vendor/lineage/build/tools/repopick.py -t eleven-vold
 
-## vendor_qcom_opensource_interfaces
-./vendor/lineage/build/tools/repopick.py -f 287010
+## Trebuchet
+./vendor/lineage/build/tools/repopick.py -t eleven-trebuchet -e 289536
 
-## packages/apps/LineageParts
-./vendor/lineage/build/tools/repopick.py 286435 286449 286412
+## vendor/lineage
+./vendor/lineage/build/tools/repopick.py 292258
 
-## Lineage SDK
-./vendor/lineage/build/tools/repopick.py -t eleven-sdk-bringup
-
-## QCOM Encryption
-##./vendor/lineage/build/tools/repopick.py -t eleven-qcom-encryption
-
-## More picks for Lineage SDK bringup
-./vendor/lineage/build/tools/repopick.py -t eleven-display-rotation
-./vendor/lineage/build/tools/repopick.py 286439 286451 286390 286452 286444
-./vendor/lineage/build/tools/repopick.py -t eleven-linked-volumes
-
-## vendor/qcom/opensource/power
-./vendor/lineage/build/tools/repopick.py -f 287142-287190
+## eleven-qcom-legacy-sepolicy
+./vendor/lineage/build/tools/repopick.py -t eleven-qcom-legacy-sepolicy
 
 #################################################################
 # PATCHES
@@ -113,6 +81,7 @@ function apply_patch {
 # Example: apply_patch [REPO_DIR] [PATCH_FILE]
 #################################################################
 
-apply_patch $TOP/bootable/recovery $PATCH_DIR/0001-Disable-install_recovery-script.patch
 apply_patch $TOP/vendor/lineage $PATCH_DIR/0001-TEMP-Disable-ADB-authentication.patch
-apply_patch $TOP/system/core $PATCH_DIR/0001-Revert-Move-adbd-s-legacy-USB-implementation-to-fast.patch
+apply_patch $TOP/device/qcom/sepolicy-legacy $PATCH_DIR/0001-sepolicy-Switch-to-BOARD_VENDOR_SEPOLICY_DIRS.patch
+apply_patch $TOP/system/sepolicy $PATCH_DIR/0001-sepolicy-Treat-proc-based-DT-fstab-the-same-and-sys-.patch
+apply_patch $TOP/system/sepolicy $PATCH_DIR/0002-Allow-init-to-write-to-proc-cpu-alignment.patch

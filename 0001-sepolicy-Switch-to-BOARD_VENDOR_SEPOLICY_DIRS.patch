@@ -1,0 +1,47 @@
+From c2909c45eec155b9040bf44c313682b40aa0b41c Mon Sep 17 00:00:00 2001
+From: Aayush Gupta <aayushgupta219@gmail.com>
+Date: Thu, 12 Nov 2020 13:53:40 +0000
+Subject: [PATCH] sepolicy: Switch to BOARD_VENDOR_SEPOLICY_DIRS
+
+- BOARD_SEPOLICY_DIRS is deprecated and gives compile-time
+  errors when used in unison with a device using BOARD_VENDOR_SEPOLICY_DIRS
+
+Ref:
+[0]: https://github.com/LineageOS/android_system_sepolicy/commit/ec3ac470a98342c13c1fec8d46433c73b08531be
+
+Signed-off-by: Aayush Gupta <aayushgupta219@gmail.com>
+Change-Id: Icefb062cc8cdef532b4310684d9a66afe97e49c4
+---
+ sepolicy.mk | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/sepolicy.mk b/sepolicy.mk
+index 9edc56e8..8840a8d2 100644
+--- a/sepolicy.mk
++++ b/sepolicy.mk
+@@ -1,11 +1,11 @@
+ # Board specific SELinux policy variable definitions
+-BOARD_SEPOLICY_DIRS += \
++BOARD_VENDOR_SEPOLICY_DIRS += \
+     device/qcom/sepolicy-legacy/common \
+     device/qcom/sepolicy-legacy/ssg \
+     device/qcom/sepolicy-legacy/$(TARGET_BOARD_PLATFORM)
+ 
+ ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+-BOARD_SEPOLICY_DIRS += \
++BOARD_VENDOR_SEPOLICY_DIRS += \
+     device/qcom/sepolicy-legacy/test
+ 
+ SELINUX_IGNORE_NEVERALLOWS := true
+@@ -18,7 +18,7 @@ BOARD_PLAT_PRIVATE_SEPOLICY_DIR += \
+     device/qcom/sepolicy-legacy/private
+ 
+ # Board specific SELinux policy variable definitions for legacy devices
+-BOARD_SEPOLICY_DIRS += \
++BOARD_VENDOR_SEPOLICY_DIRS += \
+     device/qcom/sepolicy-legacy/legacy-common
+ 
+ # Add sepolicy version to support OS upgrade and backward compatibility
+-- 
+2.29.2
+

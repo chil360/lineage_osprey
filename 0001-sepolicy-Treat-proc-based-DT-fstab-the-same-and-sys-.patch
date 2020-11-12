@@ -1,0 +1,318 @@
+From 07e75c5c4756c4bef96f884bc365cb37dae75214 Mon Sep 17 00:00:00 2001
+From: "Kevin F. Haggerty" <haggertk@lineageos.org>
+Date: Thu, 12 Nov 2020 17:57:16 +0000
+Subject: [PATCH 1/2] sepolicy: Treat proc-based DT fstab the same and
+ sys-based
+
+* Older devices have a DT fstab in proc, so we need to expand our
+  policy to make this first-class like the fancy, new, sys devices
+
+Change-Id: I3cfed1e8e9fdf8665f1348fa07fa42d4f37873e9
+---
+ prebuilts/api/30.0/private/compat/26.0/26.0.ignore.cil | 1 +
+ prebuilts/api/30.0/private/compat/27.0/27.0.ignore.cil | 1 +
+ prebuilts/api/30.0/private/compat/28.0/28.0.ignore.cil | 1 +
+ prebuilts/api/30.0/private/compat/29.0/29.0.ignore.cil | 1 +
+ prebuilts/api/30.0/private/genfs_contexts              | 1 +
+ prebuilts/api/30.0/public/file.te                      | 1 +
+ prebuilts/api/30.0/public/init.te                      | 1 +
+ prebuilts/api/30.0/public/ueventd.te                   | 3 +++
+ prebuilts/api/30.0/public/uncrypt.te                   | 3 +++
+ prebuilts/api/30.0/public/update_engine_common.te      | 3 +++
+ prebuilts/api/30.0/public/vold.te                      | 3 +++
+ private/compat/26.0/26.0.ignore.cil                    | 1 +
+ private/compat/27.0/27.0.ignore.cil                    | 1 +
+ private/compat/28.0/28.0.ignore.cil                    | 1 +
+ private/compat/29.0/29.0.ignore.cil                    | 1 +
+ private/genfs_contexts                                 | 1 +
+ public/file.te                                         | 1 +
+ public/init.te                                         | 1 +
+ public/ueventd.te                                      | 3 +++
+ public/uncrypt.te                                      | 3 +++
+ public/update_engine_common.te                         | 3 +++
+ public/vold.te                                         | 3 +++
+ 22 files changed, 38 insertions(+)
+
+diff --git a/prebuilts/api/30.0/private/compat/26.0/26.0.ignore.cil b/prebuilts/api/30.0/private/compat/26.0/26.0.ignore.cil
+index 4bb448c00..e2924392c 100644
+--- a/prebuilts/api/30.0/private/compat/26.0/26.0.ignore.cil
++++ b/prebuilts/api/30.0/private/compat/26.0/26.0.ignore.cil
+@@ -133,6 +133,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_dt_firmware_android
+     property_info
+     recovery_socket
+     role_service
+diff --git a/prebuilts/api/30.0/private/compat/27.0/27.0.ignore.cil b/prebuilts/api/30.0/private/compat/27.0/27.0.ignore.cil
+index b3607d385..fd55bf994 100644
+--- a/prebuilts/api/30.0/private/compat/27.0/27.0.ignore.cil
++++ b/prebuilts/api/30.0/private/compat/27.0/27.0.ignore.cil
+@@ -120,6 +120,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_dt_firmware_android
+     property_info
+     recovery_socket
+     role_service
+diff --git a/prebuilts/api/30.0/private/compat/28.0/28.0.ignore.cil b/prebuilts/api/30.0/private/compat/28.0/28.0.ignore.cil
+index fd17ce643..850bcd2f8 100644
+--- a/prebuilts/api/30.0/private/compat/28.0/28.0.ignore.cil
++++ b/prebuilts/api/30.0/private/compat/28.0/28.0.ignore.cil
+@@ -108,6 +108,7 @@
+     password_slot_metadata_file
+     permissionmgr_service
+     postinstall_apex_mnt_dir
++    proc_dt_firmware_android
+     recovery_socket
+     role_service
+     rollback_service
+diff --git a/prebuilts/api/30.0/private/compat/29.0/29.0.ignore.cil b/prebuilts/api/30.0/private/compat/29.0/29.0.ignore.cil
+index cfdf55e27..54e3be0f9 100644
+--- a/prebuilts/api/30.0/private/compat/29.0/29.0.ignore.cil
++++ b/prebuilts/api/30.0/private/compat/29.0/29.0.ignore.cil
+@@ -88,6 +88,7 @@
+     ota_metadata_file
+     ota_prop
+     prereboot_data_file
++    proc_dt_firmware_android
+     art_apex_dir
+     rebootescrow_hal_prop
+     securityfs
+diff --git a/prebuilts/api/30.0/private/genfs_contexts b/prebuilts/api/30.0/private/genfs_contexts
+index 89232bc01..fd4b5dcbb 100644
+--- a/prebuilts/api/30.0/private/genfs_contexts
++++ b/prebuilts/api/30.0/private/genfs_contexts
+@@ -7,6 +7,7 @@ genfscon proc /buddyinfo u:object_r:proc_buddyinfo:s0
+ genfscon proc /cmdline u:object_r:proc_cmdline:s0
+ genfscon proc /config.gz u:object_r:config_gz:s0
+ genfscon proc /diskstats u:object_r:proc_diskstats:s0
++genfscon proc /device-tree/firmware/android u:object_r:proc_dt_firmware_android:s0
+ genfscon proc /filesystems u:object_r:proc_filesystems:s0
+ genfscon proc /interrupts u:object_r:proc_interrupts:s0
+ genfscon proc /iomem u:object_r:proc_iomem:s0
+diff --git a/prebuilts/api/30.0/public/file.te b/prebuilts/api/30.0/public/file.te
+index 06c972bdc..638160eb1 100644
+--- a/prebuilts/api/30.0/public/file.te
++++ b/prebuilts/api/30.0/public/file.te
+@@ -27,6 +27,7 @@ type proc_cmdline, fs_type, proc_type;
+ type proc_cpuinfo, fs_type, proc_type;
+ type proc_dirty, fs_type, proc_type;
+ type proc_diskstats, fs_type, proc_type;
++type proc_dt_firmware_android, fs_type, proc_type;
+ type proc_extra_free_kbytes, fs_type, proc_type;
+ type proc_filesystems, fs_type, proc_type;
+ type proc_fs_verity, fs_type, proc_type;
+diff --git a/prebuilts/api/30.0/public/init.te b/prebuilts/api/30.0/public/init.te
+index 403b4c5e6..be9085a55 100644
+--- a/prebuilts/api/30.0/public/init.te
++++ b/prebuilts/api/30.0/public/init.te
+@@ -393,6 +393,7 @@ allow init {
+ }:file w_file_perms;
+ 
+ allow init {
++  proc_dt_firmware_android
+   sysfs_dt_firmware_android
+   sysfs_fs_ext4_features
+ }:file r_file_perms;
+diff --git a/prebuilts/api/30.0/public/ueventd.te b/prebuilts/api/30.0/public/ueventd.te
+index fc503b890..9b9fc2397 100644
+--- a/prebuilts/api/30.0/public/ueventd.te
++++ b/prebuilts/api/30.0/public/ueventd.te
+@@ -25,6 +25,9 @@ allow ueventd self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+ allow ueventd efs_file:dir search;
+ allow ueventd efs_file:file r_file_perms;
+ 
++# Read the legacy DT fstab
++r_dir_file(ueventd, proc_dt_firmware_android)
++
+ # Get SELinux enforcing status.
+ r_dir_file(ueventd, selinuxfs)
+ 
+diff --git a/prebuilts/api/30.0/public/uncrypt.te b/prebuilts/api/30.0/public/uncrypt.te
+index 4114b2add..d4408026f 100644
+--- a/prebuilts/api/30.0/public/uncrypt.te
++++ b/prebuilts/api/30.0/public/uncrypt.te
+@@ -41,6 +41,9 @@ allow uncrypt proc_cmdline:file r_file_perms;
+ # Read files in /sys
+ r_dir_file(uncrypt, sysfs_dt_firmware_android)
+ 
++# Read files in /proc
++r_dir_file(uncrypt, proc_dt_firmware_android)
++
+ # Suppress the denials coming from ReadDefaultFstab call.
+ dontaudit uncrypt gsi_metadata_file:dir search;
+ dontaudit uncrypt metadata_file:dir search;
+diff --git a/prebuilts/api/30.0/public/update_engine_common.te b/prebuilts/api/30.0/public/update_engine_common.te
+index 57d8e7e3a..3b01a4a03 100644
+--- a/prebuilts/api/30.0/public/update_engine_common.te
++++ b/prebuilts/api/30.0/public/update_engine_common.te
+@@ -56,6 +56,9 @@ allow update_engine_common proc_cmdline:file r_file_perms;
+ # Read files in /sys/firmware/devicetree/base/firmware/android/
+ r_dir_file(update_engine_common, sysfs_dt_firmware_android)
+ 
++# Read files in /proc/device-tree/firmware/android
++r_dir_file(update_engine_common, proc_dt_firmware_android)
++
+ # Needed because libdm reads sysfs to validate when a dm path is ready.
+ r_dir_file(update_engine_common, sysfs_dm)
+ 
+diff --git a/prebuilts/api/30.0/public/vold.te b/prebuilts/api/30.0/public/vold.te
+index 1d125d3aa..d55f2d8c4 100644
+--- a/prebuilts/api/30.0/public/vold.te
++++ b/prebuilts/api/30.0/public/vold.te
+@@ -19,6 +19,9 @@ allow vold {
+   sysfs_fs_f2fs
+ }:file w_file_perms;
+ 
++# Read the legacy DT fstab
++r_dir_file(vold, proc_dt_firmware_android)
++
+ r_dir_file(vold, rootfs)
+ r_dir_file(vold, metadata_file)
+ allow vold {
+diff --git a/private/compat/26.0/26.0.ignore.cil b/private/compat/26.0/26.0.ignore.cil
+index 4bb448c00..e2924392c 100644
+--- a/private/compat/26.0/26.0.ignore.cil
++++ b/private/compat/26.0/26.0.ignore.cil
+@@ -133,6 +133,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_dt_firmware_android
+     property_info
+     recovery_socket
+     role_service
+diff --git a/private/compat/27.0/27.0.ignore.cil b/private/compat/27.0/27.0.ignore.cil
+index b3607d385..fd55bf994 100644
+--- a/private/compat/27.0/27.0.ignore.cil
++++ b/private/compat/27.0/27.0.ignore.cil
+@@ -120,6 +120,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_dt_firmware_android
+     property_info
+     recovery_socket
+     role_service
+diff --git a/private/compat/28.0/28.0.ignore.cil b/private/compat/28.0/28.0.ignore.cil
+index fd17ce643..850bcd2f8 100644
+--- a/private/compat/28.0/28.0.ignore.cil
++++ b/private/compat/28.0/28.0.ignore.cil
+@@ -108,6 +108,7 @@
+     password_slot_metadata_file
+     permissionmgr_service
+     postinstall_apex_mnt_dir
++    proc_dt_firmware_android
+     recovery_socket
+     role_service
+     rollback_service
+diff --git a/private/compat/29.0/29.0.ignore.cil b/private/compat/29.0/29.0.ignore.cil
+index cfdf55e27..54e3be0f9 100644
+--- a/private/compat/29.0/29.0.ignore.cil
++++ b/private/compat/29.0/29.0.ignore.cil
+@@ -88,6 +88,7 @@
+     ota_metadata_file
+     ota_prop
+     prereboot_data_file
++    proc_dt_firmware_android
+     art_apex_dir
+     rebootescrow_hal_prop
+     securityfs
+diff --git a/private/genfs_contexts b/private/genfs_contexts
+index 89232bc01..fd4b5dcbb 100644
+--- a/private/genfs_contexts
++++ b/private/genfs_contexts
+@@ -7,6 +7,7 @@ genfscon proc /buddyinfo u:object_r:proc_buddyinfo:s0
+ genfscon proc /cmdline u:object_r:proc_cmdline:s0
+ genfscon proc /config.gz u:object_r:config_gz:s0
+ genfscon proc /diskstats u:object_r:proc_diskstats:s0
++genfscon proc /device-tree/firmware/android u:object_r:proc_dt_firmware_android:s0
+ genfscon proc /filesystems u:object_r:proc_filesystems:s0
+ genfscon proc /interrupts u:object_r:proc_interrupts:s0
+ genfscon proc /iomem u:object_r:proc_iomem:s0
+diff --git a/public/file.te b/public/file.te
+index 06c972bdc..638160eb1 100644
+--- a/public/file.te
++++ b/public/file.te
+@@ -27,6 +27,7 @@ type proc_cmdline, fs_type, proc_type;
+ type proc_cpuinfo, fs_type, proc_type;
+ type proc_dirty, fs_type, proc_type;
+ type proc_diskstats, fs_type, proc_type;
++type proc_dt_firmware_android, fs_type, proc_type;
+ type proc_extra_free_kbytes, fs_type, proc_type;
+ type proc_filesystems, fs_type, proc_type;
+ type proc_fs_verity, fs_type, proc_type;
+diff --git a/public/init.te b/public/init.te
+index 403b4c5e6..be9085a55 100644
+--- a/public/init.te
++++ b/public/init.te
+@@ -393,6 +393,7 @@ allow init {
+ }:file w_file_perms;
+ 
+ allow init {
++  proc_dt_firmware_android
+   sysfs_dt_firmware_android
+   sysfs_fs_ext4_features
+ }:file r_file_perms;
+diff --git a/public/ueventd.te b/public/ueventd.te
+index fc503b890..9b9fc2397 100644
+--- a/public/ueventd.te
++++ b/public/ueventd.te
+@@ -25,6 +25,9 @@ allow ueventd self:netlink_kobject_uevent_socket create_socket_perms_no_ioctl;
+ allow ueventd efs_file:dir search;
+ allow ueventd efs_file:file r_file_perms;
+ 
++# Read the legacy DT fstab
++r_dir_file(ueventd, proc_dt_firmware_android)
++
+ # Get SELinux enforcing status.
+ r_dir_file(ueventd, selinuxfs)
+ 
+diff --git a/public/uncrypt.te b/public/uncrypt.te
+index 4114b2add..d4408026f 100644
+--- a/public/uncrypt.te
++++ b/public/uncrypt.te
+@@ -41,6 +41,9 @@ allow uncrypt proc_cmdline:file r_file_perms;
+ # Read files in /sys
+ r_dir_file(uncrypt, sysfs_dt_firmware_android)
+ 
++# Read files in /proc
++r_dir_file(uncrypt, proc_dt_firmware_android)
++
+ # Suppress the denials coming from ReadDefaultFstab call.
+ dontaudit uncrypt gsi_metadata_file:dir search;
+ dontaudit uncrypt metadata_file:dir search;
+diff --git a/public/update_engine_common.te b/public/update_engine_common.te
+index 57d8e7e3a..3b01a4a03 100644
+--- a/public/update_engine_common.te
++++ b/public/update_engine_common.te
+@@ -56,6 +56,9 @@ allow update_engine_common proc_cmdline:file r_file_perms;
+ # Read files in /sys/firmware/devicetree/base/firmware/android/
+ r_dir_file(update_engine_common, sysfs_dt_firmware_android)
+ 
++# Read files in /proc/device-tree/firmware/android
++r_dir_file(update_engine_common, proc_dt_firmware_android)
++
+ # Needed because libdm reads sysfs to validate when a dm path is ready.
+ r_dir_file(update_engine_common, sysfs_dm)
+ 
+diff --git a/public/vold.te b/public/vold.te
+index 1d125d3aa..d55f2d8c4 100644
+--- a/public/vold.te
++++ b/public/vold.te
+@@ -19,6 +19,9 @@ allow vold {
+   sysfs_fs_f2fs
+ }:file w_file_perms;
+ 
++# Read the legacy DT fstab
++r_dir_file(vold, proc_dt_firmware_android)
++
+ r_dir_file(vold, rootfs)
+ r_dir_file(vold, metadata_file)
+ allow vold {
+-- 
+2.29.2
+

@@ -7,34 +7,15 @@
 	<project name="android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="chil360" revision="11.0" />
 	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="11.0" />
 
-	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-17.1" />
-	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-17.1" />
+	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-18.0" />
+	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-18.0" />
 
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
 
-	<!-- BRINGUP: LOS Repos -->
-	<project path="external/connectivity" name="LineageOS/android_external_connectivity" />
-
-	<project path="hardware/qcom-caf/common" name="LineageOS/android_hardware_qcom-caf_common" groups="qcom,pdk-qcom" >
-		<!-- add guard for AOSP hardware/qcom dir -->
-		<linkfile src="os_pickup_aosp.mk" dest="hardware/qcom/Android.mk" />
-		<!-- add guards for CAF repositories -->
-		<linkfile src="os_pickup.mk" dest="hardware/qcom-caf/msm8916/Android.mk" />
- 	</project>
-	<project path="hardware/qcom-caf/bt" name="LineageOS/android_hardware_qcom_bt" groups="qcom,pdk-qcom" revision="lineage-18.0-caf" />
-	<project path="hardware/qcom-caf/wlan" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk-qcom" revision="lineage-18.0-caf" />
-
-	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-17.1-caf-msm8916" />
-    <project path="hardware/qcom-caf/msm8916/display" name="LineageOS/android_hardware_qcom_display" remote="github" revision="lineage-17.1-caf-msm8916" />
-    <project path="hardware/qcom-caf/msm8916/media" name="LineageOS/android_hardware_qcom_media" remote="github" revision="lineage-17.1-caf-msm8916" />
-
-	<project path="packages/apps/Etar" name="LineageOS/android_packages_apps_Etar" />
-
-	<project path="system/tools/dtbtool" name="LineageOS/android_system_tools_dtbtool" remote="github" revision="lineage-17.1" />
-
-	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" />
-	<project path="vendor/qcom/opensource/interfaces" name="LineageOS/android_vendor_qcom_opensource_interfaces" />
-	<project path="vendor/qcom/opensource/power" name="LineageOS/android_vendor_qcom_opensource_power" />
+    <!-- BRINGUP: LOS Repos -->
+	<project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" remote="github" revision="lineage-17.1" />
+	<project path="vendor/qcom/opensource/libfmjni" name="LineageOS/android_vendor_qcom_opensource_libfmjni" groups="qcom,pdk-qcom" remote="github" revision="lineage-17.1" />
+    <project path="device/qcom/sepolicy-legacy" name="LineageOS/android_device_qcom_sepolicy" revision="lineage-18.0-legacy" />
 
 </manifest>
