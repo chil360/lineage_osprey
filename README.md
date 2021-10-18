@@ -1,26 +1,15 @@
 
-Lineage 18.0 for Osprey
+Lineage 19.0 for Osprey
 =======================
 
 Current Status
 --------------
 
 What's working ?
- - It boots!
- - Wifi
- - RIL
- - Mobile Data
- - Audio
- - Camera
- - Bluetooth
- - Camcorder
- - GPS
- - Media support
- - VoLTE
- - SELinux Enforcing
+ - Nothing!
 
 Not Working / Not Tested ?
- - Safetynet
+ - Everything!
 
 Download
 --------
@@ -37,7 +26,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b lineage-18.0
+    repo init -u git://github.com/LineageOS/android.git -b lineage-19.0
 
 Now create a local_manifests directory
 
@@ -52,6 +41,10 @@ Then to sync up:
 OR, for those with limited bandwidth/storage:
 
     repo sync -c --no-clone-bundle --no-tags --force-sync --optimized-fetch --prune
+
+Apply required repopicks:
+
+    Copy the repopick.sh script from this repo to the root of your build folder. Then run the repopick.sh script to apply.	
 
 Apply any required patches:
 

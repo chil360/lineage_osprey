@@ -2,20 +2,15 @@
 <manifest>
 	<remote fetch="https://github.com/chil360" name="chil360"/>
 
-	<project name="android_device_motorola_osprey" path="device/motorola/osprey" remote="chil360" revision="lineage-18.0" />
-	<project name="android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="chil360" revision="lineage-18.0" />
-	<project name="android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="chil360" revision="11.0" />
-	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="11.0" />
+	<project name="android_device_motorola_osprey" path="device/motorola/osprey" remote="chil360" revision="lineage-19.0" />
+	<project name="android_device_motorola_msm8916-common" path="device/motorola/msm8916-common" remote="chil360" revision="lineage-19.0" />
+	<project name="android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="chil360" revision="12.0" />
+	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="12.0" />
 
-	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-18.0" />
-	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-18.0" />
+	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-19.0" />
+	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-19.0" />
 
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
-
-    <!-- BRINGUP: LOS Repos -->
-	<project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" remote="github" revision="lineage-17.1" />
-	<project path="vendor/qcom/opensource/libfmjni" name="LineageOS/android_vendor_qcom_opensource_libfmjni" groups="qcom,pdk-qcom" remote="github" revision="lineage-17.1" />
-    <project path="device/qcom/sepolicy-legacy" name="LineageOS/android_device_qcom_sepolicy" revision="lineage-18.0-legacy" />
 
 </manifest>
