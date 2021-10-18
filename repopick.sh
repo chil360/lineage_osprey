@@ -59,6 +59,9 @@ vendor/lineage/build/tools/repopick.py -p 317606
 # packages/apps/Settings
 vendor/lineage/build/tools/repopick.py 317139
 
+# packages/apps/SettingsIntelligence
+vendor/lineage/build/tools/repopick.py 317614 317615
+
 # system/core
 vendor/lineage/build/tools/repopick.py 317617
 
@@ -70,3 +73,8 @@ vendor/lineage/build/tools/repopick.py 317935 317936
 vendor/lineage/build/tools/repopick.py 317608
 vendor/lineage/build/tools/repopick.py 317609
 vendor/lineage/build/tools/repopick.py 317568-317570 317804 317810 317948
+
+# Updater
+vendor/lineage/build/tools/repopick.py 317814 317815 317816 317955 318005
+vendor/lineage/build/tools/repopick.py 317920 317914
+vendor/lineage/build/tools/repopick.py 317819
