@@ -71,4 +71,13 @@ $ . build/envsetup.sh
 $ brunch osprey
 ```
 
+Notes
+-----
+
+If you get stuck at the TWRP splash screen when rebooting to recovery:
+```bash
+$ adb shell rm /data/system/storage.xml
+$ adb reboot recovery
+```
+
 Please see the [LineageOS Wiki](https://wiki.lineageos.org/) for further information.
