@@ -1,0 +1,855 @@
+From c398599e1807fdcfdf770b102a06002994fe1c9e Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Thu, 7 Oct 2021 12:59:15 +0100
+Subject: [PATCH] adb: Bring back support for legacy FunctionFS
+
+Change-Id: Ibaaf031c167d66e1f08957763b5353d71134b4e0
+---
+ Android.bp            |   9 +-
+ daemon/usb.cpp        |  26 +++-
+ daemon/usb_dummy.cpp  |  42 ++++++
+ daemon/usb_legacy.cpp | 327 ++++++++++++++++++++++++++++++++++++++++++
+ daemon/usb_legacy.h   |  68 +++++++++
+ transport.cpp         |   2 +
+ transport.h           |   8 +-
+ transport_legacy.cpp  | 212 +++++++++++++++++++++++++++
+ 8 files changed, 688 insertions(+), 6 deletions(-)
+ create mode 100644 daemon/usb_dummy.cpp
+ create mode 100644 daemon/usb_legacy.cpp
+ create mode 100644 daemon/usb_legacy.h
+ create mode 100644 transport_legacy.cpp
+
+diff --git a/Android.bp b/Android.bp
+index 64c5bc70..cfad84dd 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -112,7 +112,7 @@ cc_defaults {
+     name: "adbd_defaults",
+     defaults: ["adb_defaults"],
+ 
+-    cflags: ["-UADB_HOST", "-DADB_HOST=0"],
++    cflags: ["-UADB_HOST", "-DADB_HOST=0", "-DLEGACY_FFS=1"],
+ }
+ 
+ cc_defaults {
+@@ -221,6 +221,7 @@ libadb_srcs = [
+     "sysdeps/errno.cpp",
+     "transport.cpp",
+     "transport_fd.cpp",
++    "transport_legacy.cpp",
+     "types.cpp",
+ ]
+ 
+@@ -538,9 +539,15 @@ cc_library_static {
+                 "daemon/property_monitor.cpp",
+                 "daemon/usb.cpp",
+                 "daemon/usb_ffs.cpp",
++                "daemon/usb_legacy.cpp",
+                 "daemon/watchdog.cpp",
+             ]
+         },
++        linux_glibc: {
++            srcs: [
++                "daemon/usb_dummy.cpp",
++             ]
++        },
+         recovery: {
+             exclude_shared_libs: [
+                 "libadb_pairing_auth",
+diff --git a/daemon/usb.cpp b/daemon/usb.cpp
+index 4366ea9a..b22fbdf4 100644
+--- a/daemon/usb.cpp
++++ b/daemon/usb.cpp
+@@ -57,6 +57,9 @@
+ 
+ using android::base::StringPrintf;
+ 
++// We can't find out whether we have support for AIO on ffs endpoints until we submit a read.
++static std::optional<bool> gFfsAioSupported;
++
+ // Not all USB controllers support operations larger than 16k, so don't go above that.
+ // Also, each submitted operation does an allocation in the kernel of that size, so we want to
+ // minimize our queue depth while still maintaining a deep enough queue to keep the USB stack fed.
+@@ -602,10 +605,16 @@ struct UsbFfsConnection : public Connection {
+         block->pending = true;
+         struct iocb* iocb = &block->control;
+         if (io_submit(aio_context_.get(), 1, &iocb) != 1) {
++            if (errno == EINVAL && !gFfsAioSupported.has_value()) {
++                HandleError("failed to submit first read, AIO on FFS not supported");
++                gFfsAioSupported = false;
++                return false;
++            }
+             HandleError(StringPrintf("failed to submit read: %s", strerror(errno)));
+             return false;
+         }
+ 
++        gFfsAioSupported = true;
+         return true;
+     }
+ 
+@@ -723,6 +732,8 @@ struct UsbFfsConnection : public Connection {
+     static constexpr int kInterruptionSignal = SIGUSR1;
+ };
+ 
++void usb_init_legacy();
++
+ static void usb_ffs_open_thread() {
+     adb_thread_setname("usb ffs open");
+ 
+@@ -741,6 +752,11 @@ static void usb_ffs_open_thread() {
+     });
+ 
+     while (true) {
++        if (gFfsAioSupported.has_value() && !gFfsAioSupported.value()) {
++            LOG(INFO) << "failed to use nonblocking ffs, falling back to legacy";
++            return usb_init_legacy();
++        }
++
+         unique_fd control;
+         unique_fd bulk_out;
+         unique_fd bulk_in;
+@@ -768,5 +784,13 @@ static void usb_ffs_open_thread() {
+ }
+ 
+ void usb_init() {
+-    std::thread(usb_ffs_open_thread).detach();
++    bool use_nonblocking = android::base::GetBoolProperty(
++            "persist.adb.nonblocking_ffs",
++            android::base::GetBoolProperty("ro.adb.nonblocking_ffs", true));
++
++    if (use_nonblocking) {
++        std::thread(usb_ffs_open_thread).detach();
++    } else {
++        usb_init_legacy();
++    }
+ }
+diff --git a/daemon/usb_dummy.cpp b/daemon/usb_dummy.cpp
+new file mode 100644
+index 00000000..9223cd49
+--- /dev/null
++++ b/daemon/usb_dummy.cpp
+@@ -0,0 +1,42 @@
++/*
++ * Copyright (C) 2019 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include "usb_legacy.h"
++
++#include <android-base/logging.h>
++
++int usb_write(usb_handle*, const void*, int) {
++    LOG(FATAL) << "unimplemented";
++    return -1;
++}
++
++int usb_read(usb_handle*, void*, int) {
++    LOG(FATAL) << "unimplemented";
++    return -1;
++}
++
++int usb_close(usb_handle*) {
++    LOG(FATAL) << "unimplemented";
++    return -1;
++}
++
++void usb_reset(usb_handle*) {
++    LOG(FATAL) << "unimplemented";
++}
++
++void usb_kick(usb_handle*) {
++    LOG(FATAL) << "unimplemented";
++}
+diff --git a/daemon/usb_legacy.cpp b/daemon/usb_legacy.cpp
+new file mode 100644
+index 00000000..7fd5808d
+--- /dev/null
++++ b/daemon/usb_legacy.cpp
+@@ -0,0 +1,327 @@
++/*
++ * Copyright (C) 2007 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#define TRACE_TAG USB
++
++#include "sysdeps.h"
++
++#include <dirent.h>
++#include <errno.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++#include <sys/types.h>
++#include <unistd.h>
++
++#include <linux/usb/ch9.h>
++#include <linux/usb/functionfs.h>
++
++#include <algorithm>
++#include <atomic>
++#include <chrono>
++#include <condition_variable>
++#include <mutex>
++#include <thread>
++
++#include <android-base/logging.h>
++#include <android-base/properties.h>
++
++#include "adb.h"
++#include "usb_legacy.h"
++#include "transport.h"
++
++using namespace std::chrono_literals;
++
++#define MAX_PACKET_SIZE_FS 64
++#define MAX_PACKET_SIZE_HS 512
++#define MAX_PACKET_SIZE_SS 1024
++
++#define USB_FFS_BULK_SIZE 16384
++
++// Number of buffers needed to fit MAX_PAYLOAD, with an extra for ZLPs.
++#define USB_FFS_NUM_BUFS ((4 * MAX_PAYLOAD / USB_FFS_BULK_SIZE) + 1)
++
++static unique_fd& dummy_fd = *new unique_fd();
++
++static void aio_block_init(aio_block* aiob, unsigned num_bufs) {
++    aiob->iocb.resize(num_bufs);
++    aiob->iocbs.resize(num_bufs);
++    aiob->events.resize(num_bufs);
++    aiob->num_submitted = 0;
++    for (unsigned i = 0; i < num_bufs; i++) {
++        aiob->iocbs[i] = &aiob->iocb[i];
++    }
++    memset(&aiob->ctx, 0, sizeof(aiob->ctx));
++    if (io_setup(num_bufs, &aiob->ctx)) {
++        D("[ aio: got error on io_setup (%d) ]", errno);
++    }
++}
++
++static int getMaxPacketSize(int ffs_fd) {
++    usb_endpoint_descriptor desc;
++    if (ioctl(ffs_fd, FUNCTIONFS_ENDPOINT_DESC, reinterpret_cast<unsigned long>(&desc))) {
++        D("[ could not get endpoint descriptor! (%d) ]", errno);
++        return MAX_PACKET_SIZE_HS;
++    } else {
++        return desc.wMaxPacketSize;
++    }
++}
++
++static bool init_functionfs(struct usb_handle* h) {
++    LOG(INFO) << "initializing functionfs";
++    if (!open_functionfs(&h->control, &h->bulk_out, &h->bulk_in)) {
++        return false;
++    }
++
++    h->read_aiob.fd = h->bulk_out.get();
++    h->write_aiob.fd = h->bulk_in.get();
++    h->reads_zero_packets = true;
++    return true;
++}
++
++static void usb_legacy_ffs_open_thread(usb_handle* usb) {
++    adb_thread_setname("usb legacy ffs open");
++
++    while (true) {
++        // wait until the USB device needs opening
++        std::unique_lock<std::mutex> lock(usb->lock);
++        while (!usb->open_new_connection) {
++            usb->notify.wait(lock);
++        }
++        usb->open_new_connection = false;
++        lock.unlock();
++
++        while (true) {
++            if (init_functionfs(usb)) {
++                LOG(INFO) << "functionfs successfully initialized";
++                break;
++            }
++            std::this_thread::sleep_for(1s);
++        }
++
++        LOG(INFO) << "registering usb transport";
++        register_usb_transport(usb, nullptr, nullptr, 1);
++    }
++
++    // never gets here
++    abort();
++}
++
++static int usb_ffs_write(usb_handle* h, const void* data, int len) {
++    D("about to write (fd=%d, len=%d)", h->bulk_in.get(), len);
++
++    const char* buf = static_cast<const char*>(data);
++    int orig_len = len;
++    while (len > 0) {
++        int write_len = std::min(USB_FFS_BULK_SIZE, len);
++        int n = adb_write(h->bulk_in, buf, write_len);
++        if (n < 0) {
++            D("ERROR: fd = %d, n = %d: %s", h->bulk_in.get(), n, strerror(errno));
++            return -1;
++        }
++        buf += n;
++        len -= n;
++    }
++
++    D("[ done fd=%d ]", h->bulk_in.get());
++    return orig_len;
++}
++
++static int usb_ffs_read(usb_handle* h, void* data, int len, bool allow_partial) {
++    D("about to read (fd=%d, len=%d)", h->bulk_out.get(), len);
++
++    char* buf = static_cast<char*>(data);
++    int orig_len = len;
++    unsigned count = 0;
++    while (len > 0) {
++        int read_len = std::min(USB_FFS_BULK_SIZE, len);
++        int n = adb_read(h->bulk_out, buf, read_len);
++        if (n < 0) {
++            D("ERROR: fd = %d, n = %d: %s", h->bulk_out.get(), n, strerror(errno));
++            return -1;
++        }
++        buf += n;
++        len -= n;
++        count += n;
++
++        // For fastbootd command such as "getvar all", len parameter is always set 64.
++        // But what we read is actually less than 64.
++        // For example, length 10 for "getvar all" command.
++        // If we get less data than expected, this means there should be no more data.
++        if (allow_partial && n < read_len) {
++            orig_len = count;
++            break;
++        }
++    }
++
++    D("[ done fd=%d ]", h->bulk_out.get());
++    return orig_len;
++}
++
++static int usb_ffs_do_aio(usb_handle* h, const void* data, int len, bool read) {
++    aio_block* aiob = read ? &h->read_aiob : &h->write_aiob;
++    bool zero_packet = false;
++
++    int num_bufs = len / h->io_size + (len % h->io_size == 0 ? 0 : 1);
++    const char* cur_data = reinterpret_cast<const char*>(data);
++    int packet_size = getMaxPacketSize(aiob->fd);
++
++    if (posix_madvise(const_cast<void*>(data), len, POSIX_MADV_SEQUENTIAL | POSIX_MADV_WILLNEED) <
++        0) {
++        D("[ Failed to madvise: %d ]", errno);
++    }
++
++    for (int i = 0; i < num_bufs; i++) {
++        int buf_len = std::min(len, static_cast<int>(h->io_size));
++        io_prep(&aiob->iocb[i], aiob->fd, cur_data, buf_len, 0, read);
++
++        len -= buf_len;
++        cur_data += buf_len;
++
++        if (len == 0 && buf_len % packet_size == 0 && read) {
++            // adb does not expect the device to send a zero packet after data transfer,
++            // but the host *does* send a zero packet for the device to read.
++            zero_packet = h->reads_zero_packets;
++        }
++    }
++    if (zero_packet) {
++        io_prep(&aiob->iocb[num_bufs], aiob->fd, reinterpret_cast<const void*>(cur_data),
++                packet_size, 0, read);
++        num_bufs += 1;
++    }
++
++    while (true) {
++        if (TEMP_FAILURE_RETRY(io_submit(aiob->ctx, num_bufs, aiob->iocbs.data())) < num_bufs) {
++            PLOG(ERROR) << "aio: got error submitting " << (read ? "read" : "write");
++            return -1;
++        }
++        if (TEMP_FAILURE_RETRY(io_getevents(aiob->ctx, num_bufs, num_bufs, aiob->events.data(),
++                                            nullptr)) < num_bufs) {
++            PLOG(ERROR) << "aio: got error waiting " << (read ? "read" : "write");
++            return -1;
++        }
++        if (num_bufs == 1 && aiob->events[0].res == -EINTR) {
++            continue;
++        }
++        int ret = 0;
++        for (int i = 0; i < num_bufs; i++) {
++            if (aiob->events[i].res < 0) {
++                errno = -aiob->events[i].res;
++                PLOG(ERROR) << "aio: got error event on " << (read ? "read" : "write")
++                            << " total bufs " << num_bufs;
++                return -1;
++            }
++            ret += aiob->events[i].res;
++        }
++        return ret;
++    }
++}
++
++static int usb_ffs_aio_read(usb_handle* h, void* data, int len, bool allow_partial) {
++    return usb_ffs_do_aio(h, data, len, true);
++}
++
++static int usb_ffs_aio_write(usb_handle* h, const void* data, int len) {
++    return usb_ffs_do_aio(h, data, len, false);
++}
++
++static void usb_ffs_kick(usb_handle* h) {
++    int err;
++
++    err = ioctl(h->bulk_in.get(), FUNCTIONFS_CLEAR_HALT);
++    if (err < 0) {
++        D("[ kick: source (fd=%d) clear halt failed (%d) ]", h->bulk_in.get(), errno);
++    }
++
++    err = ioctl(h->bulk_out.get(), FUNCTIONFS_CLEAR_HALT);
++    if (err < 0) {
++        D("[ kick: sink (fd=%d) clear halt failed (%d) ]", h->bulk_out.get(), errno);
++    }
++
++    // don't close ep0 here, since we may not need to reinitialize it with
++    // the same descriptors again. if however ep1/ep2 fail to re-open in
++    // init_functionfs, only then would we close and open ep0 again.
++    // Ditto the comment in usb_adb_kick.
++    h->kicked = true;
++    TEMP_FAILURE_RETRY(dup2(dummy_fd.get(), h->bulk_out.get()));
++    TEMP_FAILURE_RETRY(dup2(dummy_fd.get(), h->bulk_in.get()));
++}
++
++static void usb_ffs_close(usb_handle* h) {
++    LOG(INFO) << "closing functionfs transport";
++
++    h->kicked = false;
++    h->bulk_out.reset();
++    h->bulk_in.reset();
++
++    // Notify usb_adb_open_thread to open a new connection.
++    h->lock.lock();
++    h->open_new_connection = true;
++    h->lock.unlock();
++    h->notify.notify_one();
++}
++
++usb_handle* create_usb_handle(unsigned num_bufs, unsigned io_size) {
++    usb_handle* h = new usb_handle();
++
++    if (android::base::GetBoolProperty("sys.usb.ffs.aio_compat", false)) {
++        // Devices on older kernels (< 3.18) will not have aio support for ffs
++        // unless backported. Fall back on the non-aio functions instead.
++        h->write = usb_ffs_write;
++        h->read = usb_ffs_read;
++    } else {
++        h->write = usb_ffs_aio_write;
++        h->read = usb_ffs_aio_read;
++        aio_block_init(&h->read_aiob, num_bufs);
++        aio_block_init(&h->write_aiob, num_bufs);
++    }
++    h->io_size = io_size;
++    h->kick = usb_ffs_kick;
++    h->close = usb_ffs_close;
++    return h;
++}
++
++void usb_init_legacy() {
++    D("[ usb_init - using legacy FunctionFS ]");
++    dummy_fd.reset(adb_open("/dev/null", O_WRONLY | O_CLOEXEC));
++    CHECK_NE(-1, dummy_fd.get());
++
++    std::thread(usb_legacy_ffs_open_thread, create_usb_handle(USB_FFS_NUM_BUFS, USB_FFS_BULK_SIZE))
++            .detach();
++}
++
++int usb_write(usb_handle* h, const void* data, int len) {
++    return h->write(h, data, len);
++}
++
++int usb_read(usb_handle* h, void* data, int len) {
++    return h->read(h, data, len, false /* allow_partial */);
++}
++
++int usb_close(usb_handle* h) {
++    h->close(h);
++    return 0;
++}
++
++void usb_reset(usb_handle* h) {
++    usb_close(h);
++}
++
++void usb_kick(usb_handle* h) {
++    h->kick(h);
++}
+diff --git a/daemon/usb_legacy.h b/daemon/usb_legacy.h
+new file mode 100644
+index 00000000..2204246c
+--- /dev/null
++++ b/daemon/usb_legacy.h
+@@ -0,0 +1,68 @@
++#pragma once
++
++/*
++ * Copyright (C) 2017 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <linux/usb/functionfs.h>
++
++#include <atomic>
++#include <condition_variable>
++#include <mutex>
++#include <vector>
++
++#include <android-base/unique_fd.h>
++#include <asyncio/AsyncIO.h>
++
++struct aio_block {
++    std::vector<struct iocb> iocb;
++    std::vector<struct iocb*> iocbs;
++    std::vector<struct io_event> events;
++    aio_context_t ctx;
++    int num_submitted;
++    int fd;
++};
++
++struct usb_handle {
++    usb_handle() : kicked(false) {
++    }
++
++    std::condition_variable notify;
++    std::mutex lock;
++    std::atomic<bool> kicked;
++    bool open_new_connection = true;
++
++    int (*write)(usb_handle* h, const void* data, int len);
++    int (*read)(usb_handle* h, void* data, int len, bool allow_partial);
++    void (*kick)(usb_handle* h);
++    void (*close)(usb_handle* h);
++
++    // FunctionFS
++    android::base::unique_fd control;
++    android::base::unique_fd bulk_out;  // "out" from the host's perspective => source for adbd
++    android::base::unique_fd bulk_in;   // "in" from the host's perspective => sink for adbd
++
++    // Access to these blocks is very not thread safe. Have one block for each of the
++    // read and write threads.
++    struct aio_block read_aiob;
++    struct aio_block write_aiob;
++
++    bool reads_zero_packets;
++    size_t io_size;
++};
++
++usb_handle *create_usb_handle(unsigned num_bufs, unsigned io_size);
++bool open_functionfs(android::base::unique_fd* control, android::base::unique_fd* bulk_out,
++                     android::base::unique_fd* bulk_in);
+diff --git a/transport.cpp b/transport.cpp
+index fbcf79b4..895ba1b2 100644
+--- a/transport.cpp
++++ b/transport.cpp
+@@ -1468,7 +1468,9 @@ void kick_all_tcp_devices() {
+     }
+     reconnect_handler.CheckForKicked();
+ }
++#endif
+ 
++#if ADB_HOST || LEGACY_FFS
+ void register_usb_transport(std::shared_ptr<Connection> connection, const char* serial,
+                             const char* devpath, unsigned writeable) {
+     atransport* t = new atransport(writeable ? kCsOffline : kCsNoPerm);
+diff --git a/transport.h b/transport.h
+index d098b7cf..727867a2 100644
+--- a/transport.h
++++ b/transport.h
+@@ -248,7 +248,7 @@ enum class ReconnectResult {
+     Abort,
+ };
+ 
+-#if ADB_HOST
++#if ADB_HOST || LEGACY_FFS
+ struct usb_handle;
+ #endif
+ 
+@@ -295,7 +295,7 @@ class atransport : public enable_weak_from_this<atransport> {
+         return connection_;
+     }
+ 
+-#if ADB_HOST
++#if ADB_HOST || LEGACY_FFS
+     void SetUsbHandle(usb_handle* h) { usb_handle_ = h; }
+     usb_handle* GetUsbHandle() { return usb_handle_; }
+ #endif
+@@ -407,7 +407,7 @@ class atransport : public enable_weak_from_this<atransport> {
+     // The underlying connection object.
+     std::shared_ptr<Connection> connection_ GUARDED_BY(mutex_);
+ 
+-#if ADB_HOST
++#if ADB_HOST || LEGACY_FFS
+     // USB handle for the connection, if available.
+     usb_handle* usb_handle_ = nullptr;
+ #endif
+@@ -459,7 +459,7 @@ void kick_all_transports_by_auth_key(std::string_view auth_key);
+ 
+ void register_transport(atransport* transport);
+ 
+-#if ADB_HOST
++#if ADB_HOST || LEGACY_FFS
+ void init_usb_transport(atransport* t, usb_handle* usb);
+ 
+ void register_usb_transport(std::shared_ptr<Connection> connection, const char* serial,
+diff --git a/transport_legacy.cpp b/transport_legacy.cpp
+new file mode 100644
+index 00000000..777edde0
+--- /dev/null
++++ b/transport_legacy.cpp
+@@ -0,0 +1,212 @@
++/*
++ * Copyright (C) 2007 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#define TRACE_TAG TRANSPORT
++
++#include "sysdeps.h"
++
++#include "client/usb.h"
++
++#include <memory>
++
++#include "sysdeps.h"
++#include "transport.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include "adb.h"
++
++#if ADB_HOST
++
++#if defined(__APPLE__)
++#define CHECK_PACKET_OVERFLOW 0
++#else
++#define CHECK_PACKET_OVERFLOW 1
++#endif
++
++// Call usb_read using a buffer having a multiple of usb_get_max_packet_size() bytes
++// to avoid overflow. See http://libusb.sourceforge.net/api-1.0/packetoverflow.html.
++static int UsbReadMessage(usb_handle* h, amessage* msg) {
++    D("UsbReadMessage");
++
++#if CHECK_PACKET_OVERFLOW
++    size_t usb_packet_size = usb_get_max_packet_size(h);
++    CHECK_GE(usb_packet_size, sizeof(*msg));
++    CHECK_LT(usb_packet_size, 4096ULL);
++
++    char buffer[4096];
++    int n = usb_read(h, buffer, usb_packet_size);
++    if (n != sizeof(*msg)) {
++        D("usb_read returned unexpected length %d (expected %zu)", n, sizeof(*msg));
++        return -1;
++    }
++    memcpy(msg, buffer, sizeof(*msg));
++    return n;
++#else
++    return usb_read(h, msg, sizeof(*msg));
++#endif
++}
++
++// Call usb_read using a buffer having a multiple of usb_get_max_packet_size() bytes
++// to avoid overflow. See http://libusb.sourceforge.net/api-1.0/packetoverflow.html.
++static int UsbReadPayload(usb_handle* h, apacket* p) {
++    D("UsbReadPayload(%d)", p->msg.data_length);
++
++    if (p->msg.data_length > MAX_PAYLOAD) {
++        return -1;
++    }
++
++#if CHECK_PACKET_OVERFLOW
++    size_t usb_packet_size = usb_get_max_packet_size(h);
++
++    // Round the data length up to the nearest packet size boundary.
++    // The device won't send a zero packet for packet size aligned payloads,
++    // so don't read any more packets than needed.
++    size_t len = p->msg.data_length;
++    size_t rem_size = len % usb_packet_size;
++    if (rem_size) {
++        len += usb_packet_size - rem_size;
++    }
++
++    p->payload.resize(len);
++    int rc = usb_read(h, &p->payload[0], p->payload.size());
++    if (rc != static_cast<int>(p->msg.data_length)) {
++        return -1;
++    }
++
++    p->payload.resize(rc);
++    return rc;
++#else
++    p->payload.resize(p->msg.data_length);
++    return usb_read(h, &p->payload[0], p->payload.size());
++#endif
++}
++
++static int remote_read(apacket* p, usb_handle* usb) {
++    int n = UsbReadMessage(usb, &p->msg);
++    if (n < 0) {
++        D("remote usb: read terminated (message)");
++        return -1;
++    }
++    if (static_cast<size_t>(n) != sizeof(p->msg)) {
++        D("remote usb: read received unexpected header length %d", n);
++        return -1;
++    }
++    if (p->msg.data_length) {
++        n = UsbReadPayload(usb, p);
++        if (n < 0) {
++            D("remote usb: terminated (data)");
++            return -1;
++        }
++        if (static_cast<uint32_t>(n) != p->msg.data_length) {
++            D("remote usb: read payload failed (need %u bytes, give %d bytes), skip it",
++              p->msg.data_length, n);
++            return -1;
++        }
++    }
++    return 0;
++}
++
++#else
++
++// On Android devices, we rely on the kernel to provide buffered read.
++// So we can recover automatically from EOVERFLOW.
++static int remote_read(apacket* p, usb_handle* usb) {
++    if (usb_read(usb, &p->msg, sizeof(amessage)) != sizeof(amessage)) {
++        PLOG(ERROR) << "remote usb: read terminated (message)";
++        return -1;
++    }
++
++    if (p->msg.data_length) {
++        if (p->msg.data_length > MAX_PAYLOAD) {
++            PLOG(ERROR) << "remote usb: read overflow (data length = " << p->msg.data_length << ")";
++            return -1;
++        }
++
++        p->payload.resize(p->msg.data_length);
++        if (usb_read(usb, &p->payload[0], p->payload.size()) !=
++            static_cast<int>(p->payload.size())) {
++            PLOG(ERROR) << "remote usb: terminated (data)";
++            return -1;
++        }
++    }
++
++    return 0;
++}
++#endif
++
++UsbConnection::~UsbConnection() {
++    usb_close(handle_);
++}
++
++bool UsbConnection::Read(apacket* packet) {
++    int rc = remote_read(packet, handle_);
++    return rc == 0;
++}
++
++bool UsbConnection::Write(apacket* packet) {
++    int size = packet->msg.data_length;
++
++    if (usb_write(handle_, &packet->msg, sizeof(packet->msg)) != sizeof(packet->msg)) {
++        PLOG(ERROR) << "remote usb: 1 - write terminated";
++        return false;
++    }
++
++    if (packet->msg.data_length != 0 && usb_write(handle_, packet->payload.data(), size) != size) {
++        PLOG(ERROR) << "remote usb: 2 - write terminated";
++        return false;
++    }
++
++    return true;
++}
++
++bool UsbConnection::DoTlsHandshake(RSA* key, std::string* auth_key) {
++    // TODO: support TLS for usb connections
++    LOG(FATAL) << "Not supported yet.";
++    return false;
++}
++
++void UsbConnection::Reset() {
++    usb_reset(handle_);
++    usb_kick(handle_);
++}
++
++void UsbConnection::Close() {
++    usb_kick(handle_);
++}
++
++void init_usb_transport(atransport* t, usb_handle* h) {
++    D("transport: usb");
++    auto connection = std::make_unique<UsbConnection>(h);
++    t->SetConnection(std::make_unique<BlockingConnectionAdapter>(std::move(connection)));
++    t->type = kTransportUsb;
++    t->SetUsbHandle(h);
++}
++
++int is_adb_interface(int usb_class, int usb_subclass, int usb_protocol) {
++    return (usb_class == ADB_CLASS && usb_subclass == ADB_SUBCLASS && usb_protocol == ADB_PROTOCOL);
++}
++
++bool should_use_libusb() {
++#if !ADB_HOST
++    return false;
++#else
++    static bool enable = getenv("ADB_LIBUSB") && strcmp(getenv("ADB_LIBUSB"), "1") == 0;
++    return enable;
++#endif
++}
+-- 
+2.33.0
+

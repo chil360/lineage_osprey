@@ -1,0 +1,61 @@
+From bbe691fa1440eb0ac1f518e6ec072c92c8be0de1 Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Fri, 8 Oct 2021 10:20:58 +0100
+Subject: [PATCH] mkbootimg: add support for --dt
+
+Change-Id: I19f149fac693420cf1f630b51293bbd3650a1b59
+---
+ mkbootimg.py | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/mkbootimg.py b/mkbootimg.py
+index e0b0839..8579978 100755
+--- a/mkbootimg.py
++++ b/mkbootimg.py
+@@ -211,8 +211,8 @@ def write_header(args):
+     args.output.write(pack('I', args.base + args.tags_offset))
+     # flash page size
+     args.output.write(pack('I', args.pagesize))
+-    # version of boot image header
+-    args.output.write(pack('I', args.header_version))
++    # version of boot image header or dt size in bytes
++    args.output.write(pack('I', max(args.header_version, filesize(args.dt))))
+     # os version and patch level
+     args.output.write(pack('I', (args.os_version << 11) | args.os_patch_level))
+     # asciiz product name
+@@ -223,6 +223,7 @@ def write_header(args):
+     update_sha(sha, args.kernel)
+     update_sha(sha, args.ramdisk)
+     update_sha(sha, args.second)
++    update_sha(sha, args.dt)
+ 
+     if args.header_version > 0:
+         update_sha(sha, args.recovery_dtbo)
+@@ -533,6 +534,7 @@ def parse_cmdline():
+                         help='print the image ID on standard output')
+     parser.add_argument('--header_version', type=parse_int, default=0,
+                         help='boot image header version')
++    parser.add_argument('--dt', help='path to the device tree image', type=FileType('rb'))
+     parser.add_argument('-o', '--output', type=FileType('wb'),
+                         help='output file name')
+     parser.add_argument('--gki_signing_algorithm',
+@@ -551,6 +553,8 @@ def parse_cmdline():
+                         help='path to the vendor bootconfig file')
+ 
+     args, extra_args = parser.parse_known_args()
++    if args.header_version > 0 and args.dt != None:
++        raise ValueError('header_version and dt cannot be set at the same time')
+     if args.vendor_boot is not None and args.header_version > 3:
+         extra_args = parse_vendor_ramdisk_args(args, extra_args)
+     if len(extra_args) > 0:
+@@ -625,6 +629,7 @@ def write_data(args, pagesize):
+     write_padded_file(args.output, args.kernel, pagesize)
+     write_padded_file(args.output, args.ramdisk, pagesize)
+     write_padded_file(args.output, args.second, pagesize)
++    write_padded_file(args.output, args.dt, args.pagesize)
+ 
+     if args.header_version > 0 and args.header_version < 3:
+         write_padded_file(args.output, args.recovery_dtbo, pagesize)
+-- 
+2.33.0
+

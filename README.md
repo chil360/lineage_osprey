@@ -6,10 +6,19 @@ Current Status
 --------------
 
 What's working ?
- - Nothing!
+ - It boots!
+ - Audio
+ - RIL
+ - Mobile data
+ - Wifi
 
 Not Working / Not Tested ?
- - Everything!
+ - Bluetooth
+ - GPS
+ - Camera
+ - Camcorder
+ - VoLTE
+ - SELinux Enforcing
 
 Download
 --------
@@ -26,7 +35,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b lineage-19.0
+    repo init -u git://github.com/LineageOS/android.git -b refs/changes/23/317623/5
 
 Now create a local_manifests directory
 

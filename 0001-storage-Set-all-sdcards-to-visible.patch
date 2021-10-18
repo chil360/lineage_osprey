@@ -1,0 +1,32 @@
+From a21cf284f03d71760533aa7d2eee99b453862abb Mon Sep 17 00:00:00 2001
+From: Andreas Schneider <asn@cryptomilk.org>
+Date: Mon, 22 Jan 2018 07:47:08 +0100
+Subject: [PATCH] storage: Set all sdcards to visible
+
+If they are visible to apps the media scanner will scan them.
+
+Change-Id: Icceceafc8469b6b9d1c0e72f8425d7e38ae4a10b
+---
+ .../core/java/com/android/server/StorageManagerService.java | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/services/core/java/com/android/server/StorageManagerService.java b/services/core/java/com/android/server/StorageManagerService.java
+index 69c29269b7a9..5b9f01467fe8 100644
+--- a/services/core/java/com/android/server/StorageManagerService.java
++++ b/services/core/java/com/android/server/StorageManagerService.java
+@@ -1577,9 +1577,9 @@ class StorageManagerService extends IStorageManager.Stub
+                 vol.mountFlags |= VolumeInfo.MOUNT_FLAG_VISIBLE;
+             }
+ 
+-            // Adoptable public disks are visible to apps, since they meet
+-            // public API requirement of being in a stable location.
+-            if (vol.disk.isAdoptable()) {
++            // Set sdcards to visible to apps. If they are visible media is scanned
++            // and they can be used for other stuff.
++            if (vol.disk.isSd()) {
+                 vol.mountFlags |= VolumeInfo.MOUNT_FLAG_VISIBLE;
+             }
+ 
+-- 
+2.33.0
+

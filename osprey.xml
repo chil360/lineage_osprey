@@ -7,10 +7,35 @@
 	<project name="android_kernel_motorola_msm8916" path="kernel/motorola/msm8916" remote="chil360" revision="12.0" />
 	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="12.0" />
 
-	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-19.0" />
-	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-19.0" />
+	<!-- Additional repos -->
+	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-18.1" />
+	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-18.1" />
 
 	<!-- ARM Developer GCC 8.3 kernel toolchain -->
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
+
+	<!-- Bringup repos -->
+    <project path="external/ant-wireless/ant_client" name="LineageOS/android_external_ant-wireless_ant_client" revision="lineage-18.1" />
+    <project path="external/ant-wireless/ant_native" name="LineageOS/android_external_ant-wireless_ant_native" revision="lineage-18.1" />
+    <project path="external/ant-wireless/ant_service" name="LineageOS/android_external_ant-wireless_ant_service" revision="lineage-18.1" />
+    <project path="external/ant-wireless/antradio-library" name="LineageOS/android_external_ant-wireless_antradio-library" revision="lineage-18.1" />
+    <project path="external/ant-wireless/hidl" name="LineageOS/android_external_ant-wireless_hidl" revision="lineage-18.1" />
+  	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-18.1" />
+
+	<project path="hardware/lineage/livedisplay" name="LineageOS/android_hardware_lineage_livedisplay" />
+
+	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-18.1-caf-msm8916" />
+    <project path="hardware/qcom-caf/msm8916/display" name="LineageOS/android_hardware_qcom_display" remote="github" revision="lineage-18.1-caf-msm8916" />
+    <project path="hardware/qcom-caf/msm8916/media" name="LineageOS/android_hardware_qcom_media" remote="github" revision="lineage-18.1-caf-msm8916" />
+
+ 	<remove-project name="platform/hardware/qcom/wlan"/>
+ 	<project path="hardware/qcom-caf/wlan" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk-qcom" revision="lineage-18.1-caf" />
+
+	<project path="packages/resources/devicesettings" name="LineageOS/android_packages_resources_devicesettings" remote="github" revision="lineage-18.1" />
+
+	<project path="system/tools/dtbtool" name="LineageOS/android_system_tools_dtbtool" remote="github" revision="lineage-18.1" />
+
+	<project path="vendor/codeaurora/telephony" name="LineageOS/android_vendor_codeaurora_telephony" remote="github" revision="lineage-18.1" />
+	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" remote="github" revision="lineage-18.1" />
 
 </manifest>
