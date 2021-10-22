@@ -55,3 +55,10 @@ apply_patch hardware/qcom-caf/msm8916/display 0001-HWC-HAXX.patch
 # frameworks/base SDCard fixes
 apply_patch frameworks/base 0001-storage-Set-all-sdcards-to-visible.patch
 apply_patch frameworks/base 0001-Correction-in-logic-of-roundend-size-calculation-of-.patch
+
+# HAL1 Hackery
+apply_patch frameworks/av 0001-MediaMuxer-HAX.patch
+apply_patch frameworks/av 0001-Revert-Camera-remove-the-camera-device-version-check.patch
+apply_patch frameworks/av 0002-Revert-Camera-Remove-old-recording-path-support.patch
+apply_patch frameworks/av 0003-Revert-Camera-Remove-all-camera-HALv1-code.patch
+apply_patch frameworks/av 0004-WIP-Camera-HAL1-fixes.patch

@@ -1,0 +1,3781 @@
+From 4cf9620c8d9c02be1241e7d86d8f1851e0388847 Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Tue, 19 Oct 2021 10:31:10 +0100
+Subject: [PATCH 3/4] Revert "Camera: Remove all camera HALv1 code"
+
+This reverts commit a976df84a463b83f5093ee34e00a726779f34308.
+
+Change-Id: I3168ed8e46ad46cad8d948b49bfc66e43c611810
+---
+ camera/Camera.cpp                             |   57 +
+ .../aidl/android/hardware/ICameraService.aidl |   16 +-
+ camera/include/camera/Camera.h                |    4 +
+ services/camera/libcameraservice/Android.bp   |    3 +
+ .../libcameraservice/CameraFlashlight.cpp     |  272 +++-
+ .../libcameraservice/CameraFlashlight.h       |   55 +
+ .../camera/libcameraservice/CameraService.cpp |  111 +-
+ .../camera/libcameraservice/CameraService.h   |   11 +-
+ .../libcameraservice/api1/CameraClient.cpp    | 1208 +++++++++++++++++
+ .../libcameraservice/api1/CameraClient.h      |  190 +++
+ .../common/CameraProviderManager.cpp          |  195 ++-
+ .../common/CameraProviderManager.h            |   26 +
+ .../device1/CameraHardwareInterface.cpp       |  818 +++++++++++
+ .../device1/CameraHardwareInterface.h         |  488 +++++++
+ 14 files changed, 3417 insertions(+), 37 deletions(-)
+ create mode 100644 services/camera/libcameraservice/api1/CameraClient.cpp
+ create mode 100644 services/camera/libcameraservice/api1/CameraClient.h
+ create mode 100644 services/camera/libcameraservice/device1/CameraHardwareInterface.cpp
+ create mode 100644 services/camera/libcameraservice/device1/CameraHardwareInterface.h
+
+diff --git a/camera/Camera.cpp b/camera/Camera.cpp
+index 333154f48e..2a0b90012a 100644
+--- a/camera/Camera.cpp
++++ b/camera/Camera.cpp
+@@ -78,6 +78,63 @@ sp<Camera> Camera::connect(int cameraId, const String16& clientPackageName,
+             clientPid, targetSdkVersion);
+ }
+ 
++status_t Camera::connectLegacy(int cameraId, int halVersion,
++        const String16& clientPackageName,
++        int clientUid,
++        sp<Camera>& camera)
++{
++    ALOGV("%s: connect legacy camera device", __FUNCTION__);
++    sp<Camera> c = new Camera(cameraId);
++    sp<::android::hardware::ICameraClient> cl = c;
++    status_t status = NO_ERROR;
++    const sp<::android::hardware::ICameraService>& cs = CameraBaseT::getCameraService();
++
++    binder::Status ret;
++    if (cs != nullptr) {
++        ret = cs.get()->connectLegacy(cl, cameraId, halVersion, clientPackageName,
++                clientUid, /*out*/&(c->mCamera));
++    }
++    if (ret.isOk() && c->mCamera != nullptr) {
++        IInterface::asBinder(c->mCamera)->linkToDeath(c);
++        c->mStatus = NO_ERROR;
++        camera = c;
++    } else {
++        switch(ret.serviceSpecificErrorCode()) {
++            case hardware::ICameraService::ERROR_DISCONNECTED:
++                status = -ENODEV;
++                break;
++            case hardware::ICameraService::ERROR_CAMERA_IN_USE:
++                status = -EBUSY;
++                break;
++            case hardware::ICameraService::ERROR_INVALID_OPERATION:
++                status = -EINVAL;
++                break;
++            case hardware::ICameraService::ERROR_MAX_CAMERAS_IN_USE:
++                status = -EUSERS;
++                break;
++            case hardware::ICameraService::ERROR_ILLEGAL_ARGUMENT:
++                status = BAD_VALUE;
++                break;
++            case hardware::ICameraService::ERROR_DEPRECATED_HAL:
++                status = -EOPNOTSUPP;
++                break;
++            case hardware::ICameraService::ERROR_DISABLED:
++                status = -EACCES;
++                break;
++            case hardware::ICameraService::ERROR_PERMISSION_DENIED:
++                status = PERMISSION_DENIED;
++                break;
++            default:
++                status = -EINVAL;
++                ALOGW("An error occurred while connecting to camera %d: %s", cameraId,
++                        (cs != nullptr) ? "Service not available" : ret.toString8().string());
++                break;
++        }
++        c.clear();
++    }
++    return status;
++}
++
+ status_t Camera::reconnect()
+ {
+     ALOGV("reconnect");
+diff --git a/camera/aidl/android/hardware/ICameraService.aidl b/camera/aidl/android/hardware/ICameraService.aidl
+index 78a77d4ea1..169e52aa57 100644
+--- a/camera/aidl/android/hardware/ICameraService.aidl
++++ b/camera/aidl/android/hardware/ICameraService.aidl
+@@ -71,7 +71,7 @@ interface ICameraService
+ 
+     /**
+      * Default UID/PID values for non-privileged callers of
+-     * connect() and connectDevice()
++     * connect(), connectDevice(), and connectLegacy()
+      */
+     const int USE_CALLING_UID = -1;
+     const int USE_CALLING_PID = -1;
+@@ -96,6 +96,20 @@ interface ICameraService
+             int clientUid, int oomScoreOffset,
+             int targetSdkVersion);
+ 
++    /**
++     * halVersion constant for connectLegacy
++     */
++    const int CAMERA_HAL_API_VERSION_UNSPECIFIED = -1;
++
++    /**
++     * Open a camera device in legacy mode, if supported by the camera module HAL.
++     */
++    ICamera connectLegacy(ICameraClient client,
++            int cameraId,
++            int halVersion,
++            String opPackageName,
++            int clientUid);
++
+     /**
+      * Add listener for changes to camera device and flashlight state.
+      *
+diff --git a/camera/include/camera/Camera.h b/camera/include/camera/Camera.h
+index 53f9ba6119..296dc57781 100644
+--- a/camera/include/camera/Camera.h
++++ b/camera/include/camera/Camera.h
+@@ -84,6 +84,10 @@ public:
+                                 const String16& clientPackageName,
+                                 int clientUid, int clientPid, int targetSdkVersion);
+ 
++    static  status_t  connectLegacy(int cameraId, int halVersion,
++                                     const String16& clientPackageName,
++                                     int clientUid, sp<Camera>& camera);
++
+             virtual     ~Camera();
+ 
+             status_t    reconnect();
+diff --git a/services/camera/libcameraservice/Android.bp b/services/camera/libcameraservice/Android.bp
+index 26562e0426..dcbeb239de 100644
+--- a/services/camera/libcameraservice/Android.bp
++++ b/services/camera/libcameraservice/Android.bp
+@@ -49,6 +49,7 @@ cc_library_shared {
+         "common/CameraProviderManager.cpp",
+         "common/DepthPhotoProcessor.cpp",
+         "common/FrameProcessorBase.cpp",
++        "api1/CameraClient.cpp",
+         "api1/Camera2Client.cpp",
+         "api1/client2/Parameters.cpp",
+         "api1/client2/FrameProcessor.cpp",
+@@ -64,6 +65,7 @@ cc_library_shared {
+         "api2/DepthCompositeStream.cpp",
+         "api2/HeicEncoderInfoManager.cpp",
+         "api2/HeicCompositeStream.cpp",
++        "device1/CameraHardwareInterface.cpp",
+         "device3/BufferUtils.cpp",
+         "device3/Camera3Device.cpp",
+         "device3/Camera3OfflineSession.cpp",
+@@ -148,6 +150,7 @@ cc_library_shared {
+         "android.hardware.camera.provider@2.5",
+         "android.hardware.camera.provider@2.6",
+         "android.hardware.camera.provider@2.7",
++        "android.hardware.camera.device@1.0",
+         "android.hardware.camera.device@3.2",
+         "android.hardware.camera.device@3.3",
+         "android.hardware.camera.device@3.4",
+diff --git a/services/camera/libcameraservice/CameraFlashlight.cpp b/services/camera/libcameraservice/CameraFlashlight.cpp
+index ccdd9e5c62..e629cdd798 100644
+--- a/services/camera/libcameraservice/CameraFlashlight.cpp
++++ b/services/camera/libcameraservice/CameraFlashlight.cpp
+@@ -59,8 +59,9 @@ status_t CameraFlashlight::createFlashlightControl(const String8& cameraId) {
+     if (mProviderManager->supportSetTorchMode(cameraId.string())) {
+         mFlashControl = new ProviderFlashControl(mProviderManager);
+     } else {
+-        ALOGE("Flashlight control not supported by this device!");
+-        return NO_INIT;
++        // Only HAL1 devices do not support setTorchMode
++        mFlashControl =
++                new CameraHardwareInterfaceFlashControl(mProviderManager, mCallbacks);
+     }
+ 
+     return OK;
+@@ -308,4 +309,271 @@ status_t ProviderFlashControl::setTorchMode(const String8& cameraId, bool enable
+ }
+ // ProviderFlashControl implementation ends
+ 
++/////////////////////////////////////////////////////////////////////
++// CameraHardwareInterfaceFlashControl implementation begins
++// Flash control for camera module <= v2.3 and camera HAL v1
++/////////////////////////////////////////////////////////////////////
++
++CameraHardwareInterfaceFlashControl::CameraHardwareInterfaceFlashControl(
++        sp<CameraProviderManager> manager,
++        CameraProviderManager::StatusListener* callbacks) :
++        mProviderManager(manager),
++        mCallbacks(callbacks),
++        mTorchEnabled(false) {
++}
++
++CameraHardwareInterfaceFlashControl::~CameraHardwareInterfaceFlashControl() {
++    disconnectCameraDevice();
++
++    mSurface.clear();
++    mSurfaceTexture.clear();
++    mProducer.clear();
++    mConsumer.clear();
++
++    if (mTorchEnabled) {
++        if (mCallbacks) {
++            ALOGV("%s: notify the framework that torch was turned off",
++                    __FUNCTION__);
++            mCallbacks->onTorchStatusChanged(mCameraId, TorchModeStatus::AVAILABLE_OFF);
++        }
++    }
++}
++
++status_t CameraHardwareInterfaceFlashControl::setTorchMode(
++        const String8& cameraId, bool enabled) {
++    Mutex::Autolock l(mLock);
++
++    // pre-check
++    status_t res;
++    if (enabled) {
++        bool hasFlash = false;
++        // Check if it has a flash unit and leave camera device open.
++        res = hasFlashUnitLocked(cameraId, &hasFlash, /*keepDeviceOpen*/true);
++        // invalid camera?
++        if (res) {
++            // hasFlashUnitLocked() returns BAD_INDEX if mDevice is connected to
++            // another camera device.
++            return res == BAD_INDEX ? BAD_INDEX : -EINVAL;
++        }
++        // no flash unit?
++        if (!hasFlash) {
++            // Disconnect camera device if it has no flash.
++            disconnectCameraDevice();
++            return -ENOSYS;
++        }
++    } else if (mDevice == NULL || cameraId != mCameraId) {
++        // disabling the torch mode of an un-opened or different device.
++        return OK;
++    } else {
++        // disabling the torch mode of currently opened device
++        disconnectCameraDevice();
++        mTorchEnabled = false;
++        mCallbacks->onTorchStatusChanged(cameraId, TorchModeStatus::AVAILABLE_OFF);
++        return OK;
++    }
++
++    res = startPreviewAndTorch();
++    if (res) {
++        return res;
++    }
++
++    mTorchEnabled = true;
++    mCallbacks->onTorchStatusChanged(cameraId, TorchModeStatus::AVAILABLE_ON);
++    return OK;
++}
++
++status_t CameraHardwareInterfaceFlashControl::hasFlashUnit(
++        const String8& cameraId, bool *hasFlash) {
++    Mutex::Autolock l(mLock);
++    // Close device after checking if it has a flash unit.
++    return hasFlashUnitLocked(cameraId, hasFlash, /*keepDeviceOpen*/false);
++}
++
++status_t CameraHardwareInterfaceFlashControl::hasFlashUnitLocked(
++        const String8& cameraId, bool *hasFlash, bool keepDeviceOpen) {
++    bool closeCameraDevice = false;
++
++    if (!hasFlash) {
++        return BAD_VALUE;
++    }
++
++    status_t res;
++    if (mDevice == NULL) {
++        // Connect to camera device to query if it has a flash unit.
++        res = connectCameraDevice(cameraId);
++        if (res) {
++            return res;
++        }
++        // Close camera device only when it is just opened and the caller doesn't want to keep
++        // the camera device open.
++        closeCameraDevice = !keepDeviceOpen;
++    }
++
++    if (cameraId != mCameraId) {
++        return BAD_INDEX;
++    }
++
++    const char *flashMode =
++            mParameters.get(CameraParameters::KEY_SUPPORTED_FLASH_MODES);
++    if (flashMode && strstr(flashMode, CameraParameters::FLASH_MODE_TORCH)) {
++        *hasFlash = true;
++    } else {
++        *hasFlash = false;
++    }
++
++    if (closeCameraDevice) {
++        res = disconnectCameraDevice();
++        if (res != OK) {
++            ALOGE("%s: Failed to disconnect camera device. %s (%d)", __FUNCTION__,
++                    strerror(-res), res);
++            return res;
++        }
++    }
++
++    return OK;
++}
++
++status_t CameraHardwareInterfaceFlashControl::startPreviewAndTorch() {
++    status_t res = OK;
++    res = mDevice->startPreview();
++    if (res) {
++        ALOGE("%s: start preview failed. %s (%d)", __FUNCTION__,
++                strerror(-res), res);
++        return res;
++    }
++
++    mParameters.set(CameraParameters::KEY_FLASH_MODE,
++            CameraParameters::FLASH_MODE_TORCH);
++
++    return mDevice->setParameters(mParameters);
++}
++
++status_t CameraHardwareInterfaceFlashControl::getSmallestSurfaceSize(
++        int32_t *width, int32_t *height) {
++    if (!width || !height) {
++        return BAD_VALUE;
++    }
++
++    int32_t w = INT32_MAX;
++    int32_t h = 1;
++    Vector<Size> sizes;
++
++    mParameters.getSupportedPreviewSizes(sizes);
++    for (size_t i = 0; i < sizes.size(); i++) {
++        Size s = sizes[i];
++        if (w * h > s.width * s.height) {
++            w = s.width;
++            h = s.height;
++        }
++    }
++
++    if (w == INT32_MAX) {
++        return NAME_NOT_FOUND;
++    }
++
++    *width = w;
++    *height = h;
++
++    return OK;
++}
++
++status_t CameraHardwareInterfaceFlashControl::initializePreviewWindow(
++        const sp<CameraHardwareInterface>& device, int32_t width, int32_t height) {
++    status_t res;
++    BufferQueue::createBufferQueue(&mProducer, &mConsumer);
++
++    mSurfaceTexture = new GLConsumer(mConsumer, 0, GLConsumer::TEXTURE_EXTERNAL,
++            true, true);
++    if (mSurfaceTexture == NULL) {
++        return NO_MEMORY;
++    }
++
++    int32_t format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
++    res = mSurfaceTexture->setDefaultBufferSize(width, height);
++    if (res) {
++        return res;
++    }
++    res = mSurfaceTexture->setDefaultBufferFormat(format);
++    if (res) {
++        return res;
++    }
++
++    mSurface = new Surface(mProducer, /*useAsync*/ true);
++    if (mSurface == NULL) {
++        return NO_MEMORY;
++    }
++
++    res = native_window_api_connect(mSurface.get(), NATIVE_WINDOW_API_CAMERA);
++    if (res) {
++        ALOGE("%s: Unable to connect to native window", __FUNCTION__);
++        return res;
++    }
++
++    return device->setPreviewWindow(mSurface);
++}
++
++status_t CameraHardwareInterfaceFlashControl::connectCameraDevice(
++        const String8& cameraId) {
++    sp<CameraHardwareInterface> device =
++            new CameraHardwareInterface(cameraId.string());
++
++    status_t res = device->initialize(mProviderManager);
++    if (res) {
++        ALOGE("%s: initializing camera %s failed", __FUNCTION__,
++                cameraId.string());
++        return res;
++    }
++
++    // need to set __get_memory in set_callbacks().
++    device->setCallbacks(NULL, NULL, NULL, NULL, NULL);
++
++    mParameters = device->getParameters();
++
++    int32_t width, height;
++    res = getSmallestSurfaceSize(&width, &height);
++    if (res) {
++        ALOGE("%s: failed to get smallest surface size for camera %s",
++                __FUNCTION__, cameraId.string());
++        return res;
++    }
++
++    res = initializePreviewWindow(device, width, height);
++    if (res) {
++        ALOGE("%s: failed to initialize preview window for camera %s",
++                __FUNCTION__, cameraId.string());
++        return res;
++    }
++
++    mCameraId = cameraId;
++    mDevice = device;
++    return OK;
++}
++
++status_t CameraHardwareInterfaceFlashControl::disconnectCameraDevice() {
++    if (mDevice == NULL) {
++        return OK;
++    }
++
++    if (mParameters.get(CameraParameters::KEY_FLASH_MODE)) {
++        // There is a flash, turn if off.
++        // (If there isn't one, leave the parameter null)
++        mParameters.set(CameraParameters::KEY_FLASH_MODE,
++                CameraParameters::FLASH_MODE_OFF);
++        mDevice->setParameters(mParameters);
++    }
++    mDevice->stopPreview();
++    status_t res = native_window_api_disconnect(mSurface.get(),
++            NATIVE_WINDOW_API_CAMERA);
++    if (res) {
++        ALOGW("%s: native_window_api_disconnect failed: %s (%d)",
++                __FUNCTION__, strerror(-res), res);
++    }
++    mDevice->setPreviewWindow(NULL);
++    mDevice->release();
++    mDevice = NULL;
++
++    return OK;
++}
++// CameraHardwareInterfaceFlashControl implementation ends
++
+ }
+diff --git a/services/camera/libcameraservice/CameraFlashlight.h b/services/camera/libcameraservice/CameraFlashlight.h
+index b97fa5f340..1baaba27fd 100644
+--- a/services/camera/libcameraservice/CameraFlashlight.h
++++ b/services/camera/libcameraservice/CameraFlashlight.h
+@@ -23,6 +23,8 @@
+ #include <utils/SortedVector.h>
+ #include "common/CameraProviderManager.h"
+ #include "common/CameraDeviceBase.h"
++#include "device1/CameraHardwareInterface.h"
++
+ 
+ namespace android {
+ 
+@@ -122,6 +124,59 @@ class ProviderFlashControl : public FlashControlBase {
+         Mutex mLock;
+ };
+ 
++/**
++ * Flash control for camera module <= v2.3 and camera HAL v1
++ */
++class CameraHardwareInterfaceFlashControl : public FlashControlBase {
++    public:
++        CameraHardwareInterfaceFlashControl(
++                sp<CameraProviderManager> manager,
++                CameraProviderManager::StatusListener* callbacks);
++        virtual ~CameraHardwareInterfaceFlashControl();
++
++        // FlashControlBase
++        status_t setTorchMode(const String8& cameraId, bool enabled);
++        status_t hasFlashUnit(const String8& cameraId, bool *hasFlash);
++
++    private:
++        // connect to a camera device
++        status_t connectCameraDevice(const String8& cameraId);
++
++        // disconnect and free mDevice
++        status_t disconnectCameraDevice();
++
++        // initialize the preview window
++        status_t initializePreviewWindow(const sp<CameraHardwareInterface>& device,
++                int32_t width, int32_t height);
++
++        // start preview and enable torch
++        status_t startPreviewAndTorch();
++
++        // get the smallest surface
++        status_t getSmallestSurfaceSize(int32_t *width, int32_t *height);
++
++        // protected by mLock
++        // If this function opens camera device in order to check if it has a flash unit, the
++        // camera device will remain open if keepDeviceOpen is true and the camera device will be
++        // closed if keepDeviceOpen is false. If camera device is already open when calling this
++        // function, keepDeviceOpen is ignored.
++        status_t hasFlashUnitLocked(const String8& cameraId, bool *hasFlash, bool keepDeviceOpen);
++
++        sp<CameraProviderManager> mProviderManager;
++        CameraProviderManager::StatusListener* mCallbacks;
++        sp<CameraHardwareInterface> mDevice;
++        String8 mCameraId;
++        CameraParameters mParameters;
++        bool mTorchEnabled;
++
++        sp<IGraphicBufferProducer> mProducer;
++        sp<IGraphicBufferConsumer>  mConsumer;
++        sp<GLConsumer> mSurfaceTexture;
++        sp<Surface> mSurface;
++
++        Mutex mLock;
++};
++
+ } // namespace android
+ 
+ #endif
+diff --git a/services/camera/libcameraservice/CameraService.cpp b/services/camera/libcameraservice/CameraService.cpp
+index f4635b76fc..e1359f123a 100644
+--- a/services/camera/libcameraservice/CameraService.cpp
++++ b/services/camera/libcameraservice/CameraService.cpp
+@@ -70,6 +70,7 @@
+ #include <system/camera.h>
+ 
+ #include "CameraService.h"
++#include "api1/CameraClient.h"
+ #include "api1/Camera2Client.h"
+ #include "api2/CameraDeviceClient.h"
+ #include "utils/CameraTraces.h"
+@@ -741,17 +742,11 @@ Status CameraService::getCameraCharacteristics(const String16& cameraId,
+     status_t res = mCameraProviderManager->getCameraCharacteristics(
+             cameraIdStr, overrideForPerfClass, cameraInfo);
+     if (res != OK) {
+-        if (res == NAME_NOT_FOUND) {
+-            return STATUS_ERROR_FMT(ERROR_ILLEGAL_ARGUMENT, "Unable to retrieve camera "
+-                    "characteristics for unknown device %s: %s (%d)", String8(cameraId).string(),
+-                    strerror(-res), res);
+-        } else {
+-            logServiceError(String8::format("Unable to retrieve camera characteristics for "
+-            "device %s.", String8(cameraId).string()),ERROR_INVALID_OPERATION);
+-            return STATUS_ERROR_FMT(ERROR_INVALID_OPERATION, "Unable to retrieve camera "
+-                    "characteristics for device %s: %s (%d)", String8(cameraId).string(),
+-                    strerror(-res), res);
+-        }
++        logServiceError(String8::format("Unable to retrieve camera characteristics for "
++        "device %s.", String8(cameraId).string()),ERROR_INVALID_OPERATION);
++        return STATUS_ERROR_FMT(ERROR_INVALID_OPERATION, "Unable to retrieve camera "
++                "characteristics for device %s: %s (%d)", String8(cameraId).string(),
++                strerror(-res), res);
+     }
+     SystemCameraKind deviceKind = SystemCameraKind::PUBLIC;
+     if (getSystemCameraKind(String8(cameraId), &deviceKind) != OK) {
+@@ -881,16 +876,25 @@ Status CameraService::makeClient(const sp<CameraService>& cameraService,
+         const sp<IInterface>& cameraCb, const String16& packageName,
+         const std::optional<String16>& featureId,  const String8& cameraId,
+         int api1CameraId, int facing, int sensorOrientation, int clientPid, uid_t clientUid,
+-        int servicePid, int deviceVersion, apiLevel effectiveApiLevel, bool overrideForPerfClass,
++        int servicePid, int deviceVersion, apiLevel effectiveApiLevel, int halVersion, bool overrideForPerfClass,
+         /*out*/sp<BasicClient>* client) {
+ 
+-    // Create CameraClient based on device version reported by the HAL.
+-    switch(deviceVersion) {
+-        case CAMERA_DEVICE_API_VERSION_1_0:
+-            ALOGE("Camera using old HAL version: %d", deviceVersion);
+-            return STATUS_ERROR_FMT(ERROR_DEPRECATED_HAL,
+-                    "Camera device \"%s\" HAL version %d no longer supported",
+-                    cameraId.string(), deviceVersion);
++    if (halVersion < 0 || halVersion == deviceVersion) {
++        // Default path: HAL version is unspecified by caller, create CameraClient
++        // based on device version reported by the HAL.
++        switch(deviceVersion) {
++          case CAMERA_DEVICE_API_VERSION_1_0:
++            if (effectiveApiLevel == API_1) {  // Camera1 API route
++                sp<ICameraClient> tmp = static_cast<ICameraClient*>(cameraCb.get());
++                *client = new CameraClient(cameraService, tmp, packageName, featureId,
++                        api1CameraId, facing, clientPid, clientUid,
++                        getpid());
++            } else { // Camera2 API route
++                ALOGW("Camera using old HAL version: %d", deviceVersion);
++                return STATUS_ERROR_FMT(ERROR_DEPRECATED_HAL,
++                        "Camera device \"%s\" HAL version %d does not support camera2 API",
++                        cameraId.string(), deviceVersion);
++            }
+             break;
+         case CAMERA_DEVICE_API_VERSION_3_0:
+         case CAMERA_DEVICE_API_VERSION_3_1:
+@@ -914,12 +918,32 @@ Status CameraService::makeClient(const sp<CameraService>& cameraService,
+                         overrideForPerfClass);
+             }
+             break;
+-        default:
++          default:
+             // Should not be reachable
+             ALOGE("Unknown camera device HAL version: %d", deviceVersion);
+             return STATUS_ERROR_FMT(ERROR_INVALID_OPERATION,
+                     "Camera device \"%s\" has unknown HAL version %d",
+                     cameraId.string(), deviceVersion);
++        }
++    } else {
++        // A particular HAL version is requested by caller. Create CameraClient
++        // based on the requested HAL version.
++        if (deviceVersion > CAMERA_DEVICE_API_VERSION_1_0 &&
++            halVersion == CAMERA_DEVICE_API_VERSION_1_0) {
++            // Only support higher HAL version device opened as HAL1.0 device.
++            sp<ICameraClient> tmp = static_cast<ICameraClient*>(cameraCb.get());
++            *client = new CameraClient(cameraService, tmp, packageName, featureId,
++                    api1CameraId, facing, clientPid, clientUid,
++                    servicePid);
++        } else {
++            // Other combinations (e.g. HAL3.x open as HAL2.x) are not supported yet.
++            ALOGE("Invalid camera HAL version %x: HAL %x device can only be"
++                    " opened as HAL %x device", halVersion, deviceVersion,
++                    CAMERA_DEVICE_API_VERSION_1_0);
++            return STATUS_ERROR_FMT(ERROR_ILLEGAL_ARGUMENT,
++                    "Camera device \"%s\" (HAL version %d) cannot be opened as HAL version %d",
++                    cameraId.string(), deviceVersion, halVersion);
++        }
+     }
+     return Status::ok();
+ }
+@@ -1007,6 +1031,7 @@ Status CameraService::initializeShimMetadata(int cameraId) {
+     sp<Client> tmp = nullptr;
+     if (!(ret = connectHelper<ICameraClient,Client>(
+             sp<ICameraClient>{nullptr}, id, cameraId,
++            static_cast<int>(CAMERA_HAL_API_VERSION_UNSPECIFIED),
+             internalPackageName, {}, uid, USE_CALLING_PID,
+             API_1, /*shimUpdateOnly*/ true, /*oomScoreOffset*/ 0,
+             /*targetSdkVersion*/ __ANDROID_API_FUTURE__, /*out*/ tmp)
+@@ -1534,8 +1559,35 @@ Status CameraService::connect(
+     String8 id = cameraIdIntToStr(api1CameraId);
+     sp<Client> client = nullptr;
+     ret = connectHelper<ICameraClient,Client>(cameraClient, id, api1CameraId,
++            CAMERA_HAL_API_VERSION_UNSPECIFIED, clientPackageName, {},
++            clientUid, clientPid, API_1, /*shimUpdateOnly*/ false, /*out*/client);
++
++    if(!ret.isOk()) {
++        logRejected(id, CameraThreadState::getCallingPid(), String8(clientPackageName),
++                ret.toString8());
++        return ret;
++    }
++
++    *device = client;
++    return ret;
++}
++
++Status CameraService::connectLegacy(
++        const sp<ICameraClient>& cameraClient,
++        int api1CameraId, int halVersion,
++        const String16& clientPackageName,
++        int clientUid,
++        /*out*/
++        sp<ICamera>* device) {
++
++    ATRACE_CALL();
++    String8 id = cameraIdIntToStr(api1CameraId);
++
++    Status ret = Status::ok();
++    sp<Client> client = nullptr;
++    ret = connectHelper<ICameraClient,Client>(cameraClient, id, api1CameraId, halVersion,
+             clientPackageName, {}, clientUid, clientPid, API_1,
+-            /*shimUpdateOnly*/ false, /*oomScoreOffset*/ 0, targetSdkVersion, /*out*/client);
++            /*shimUpdateOnly*/ false, /*out*/client);
+ 
+     if(!ret.isOk()) {
+         logRejected(id, CameraThreadState::getCallingPid(), String8(clientPackageName),
+@@ -1576,9 +1628,8 @@ bool CameraService::shouldRejectSystemCameraConnection(const String8& cameraId)
+     int cUid = CameraThreadState::getCallingUid();
+     SystemCameraKind systemCameraKind = SystemCameraKind::PUBLIC;
+     if (getSystemCameraKind(cameraId, &systemCameraKind) != OK) {
+-        // This isn't a known camera ID, so it's not a system camera
+-        ALOGV("%s: Unknown camera id %s, ", __FUNCTION__, cameraId.c_str());
+-        return false;
++        ALOGE("%s: Invalid camera id %s, ", __FUNCTION__, cameraId.c_str());
++        return true;
+     }
+ 
+     // (1) Cameraserver trying to connect, accept.
+@@ -1649,8 +1700,9 @@ Status CameraService::connectDevice(
+     }
+ 
+     ret = connectHelper<hardware::camera2::ICameraDeviceCallbacks,CameraDeviceClient>(cameraCb, id,
+-            /*api1CameraId*/-1, clientPackageNameAdj, clientFeatureId,
+-            clientUid, USE_CALLING_PID, API_2, /*shimUpdateOnly*/ false, oomScoreOffset,
++            /*api1CameraId*/-1,
++            CAMERA_HAL_API_VERSION_UNSPECIFIED, clientPackageNameAdj, clientFeatureId,
++            clientUid, USE_CALLING_PID, API_2, /*shimUpdateOnly*/ false, /*out*/client);
+             targetSdkVersion, /*out*/client);
+ 
+     if(!ret.isOk()) {
+@@ -1680,7 +1732,7 @@ Status CameraService::connectDevice(
+ 
+ template<class CALLBACK, class CLIENT>
+ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8& cameraId,
+-        int api1CameraId, const String16& clientPackageName,
++        int api1CameraId, int halVersion, const String16& clientPackageName,
+         const std::optional<String16>& clientFeatureId, int clientUid, int clientPid,
+         apiLevel effectiveApiLevel, bool shimUpdateOnly, int oomScoreOffset, int targetSdkVersion,
+         /*out*/sp<CLIENT>& device) {
+@@ -1690,8 +1742,9 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
+ 
+     int originalClientPid = 0;
+ 
+-    ALOGI("CameraService::connect call (PID %d \"%s\", camera ID %s) and "
++    ALOGI("CameraService::connect call (PID %d \"%s\", camera ID %s) for HAL version %s and "
+             "Camera API version %d", clientPid, clientName8.string(), cameraId.string(),
++            (halVersion == -1) ? "default" : std::to_string(halVersion).c_str(),
+             static_cast<int>(effectiveApiLevel));
+ 
+     nsecs_t openTimeNs = systemTime();
+@@ -1777,7 +1830,7 @@ Status CameraService::connectHelper(const sp<CALLBACK>& cameraCb, const String8&
+         if(!(ret = makeClient(this, cameraCb, clientPackageName, clientFeatureId,
+                 cameraId, api1CameraId, facing, orientation,
+                 clientPid, clientUid, getpid(),
+-                deviceVersion, effectiveApiLevel, overrideForPerfClass,
++                halVersion, deviceVersion, effectiveApiLevel, overrideForPerfClass,
+                 /*out*/&tmp)).isOk()) {
+             return ret;
+         }
+diff --git a/services/camera/libcameraservice/CameraService.h b/services/camera/libcameraservice/CameraService.h
+index bc2e3479bc..e79fff25a9 100644
+--- a/services/camera/libcameraservice/CameraService.h
++++ b/services/camera/libcameraservice/CameraService.h
+@@ -72,6 +72,7 @@ class CameraService :
+     public virtual CameraProviderManager::StatusListener
+ {
+     friend class BinderService<CameraService>;
++    friend class CameraClient;
+     friend class CameraOfflineSessionClient;
+ public:
+     class Client;
+@@ -135,6 +136,12 @@ public:
+             /*out*/
+             sp<hardware::ICamera>* device);
+ 
++    virtual binder::Status     connectLegacy(const sp<hardware::ICameraClient>& cameraClient,
++            int32_t cameraId, int32_t halVersion,
++            const String16& clientPackageName, int32_t clientUid,
++            /*out*/
++            sp<hardware::ICamera>* device);
++
+     virtual binder::Status     connectDevice(
+             const sp<hardware::camera2::ICameraDeviceCallbacks>& cameraCb, const String16& cameraId,
+             const String16& clientPackageName, const std::optional<String16>& clientFeatureId,
+@@ -777,7 +784,7 @@ private:
+     // Single implementation shared between the various connect calls
+     template<class CALLBACK, class CLIENT>
+     binder::Status connectHelper(const sp<CALLBACK>& cameraCb, const String8& cameraId,
+-            int api1CameraId, const String16& clientPackageName,
++            int api1CameraId, int halVersion, const String16& clientPackageName,
+             const std::optional<String16>& clientFeatureId, int clientUid, int clientPid,
+             apiLevel effectiveApiLevel, bool shimUpdateOnly, int scoreOffset, int targetSdkVersion,
+             /*out*/sp<CLIENT>& device);
+@@ -1146,7 +1153,7 @@ private:
+             const sp<IInterface>& cameraCb, const String16& packageName,
+             const std::optional<String16>& featureId, const String8& cameraId, int api1CameraId,
+             int facing, int sensorOrientation, int clientPid, uid_t clientUid, int servicePid,
+-            int deviceVersion, apiLevel effectiveApiLevel, bool overrideForPerfClass,
++            int halVersion, int deviceVersion, apiLevel effectiveApiLevel, bool overrideForPerfClass,
+             /*out*/sp<BasicClient>* client);
+ 
+     status_t checkCameraAccess(const String16& opPackageName);
+diff --git a/services/camera/libcameraservice/api1/CameraClient.cpp b/services/camera/libcameraservice/api1/CameraClient.cpp
+new file mode 100644
+index 0000000000..b860ceb7fc
+--- /dev/null
++++ b/services/camera/libcameraservice/api1/CameraClient.cpp
+@@ -0,0 +1,1208 @@
++/*
++ * Copyright (C) 2012 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#define LOG_TAG "CameraClient"
++//#define LOG_NDEBUG 0
++
++#include <cutils/atomic.h>
++#include <cutils/properties.h>
++#include <gui/Surface.h>
++#include <media/hardware/HardwareAPI.h>
++
++#include "api1/CameraClient.h"
++#include "device1/CameraHardwareInterface.h"
++#include "CameraService.h"
++#include "utils/CameraThreadState.h"
++
++namespace android {
++
++#define LOG1(...) ALOGD_IF(gLogLevel >= 1, __VA_ARGS__);
++#define LOG2(...) ALOGD_IF(gLogLevel >= 2, __VA_ARGS__);
++
++CameraClient::CameraClient(const sp<CameraService>& cameraService,
++        const sp<hardware::ICameraClient>& cameraClient,
++        const String16& clientPackageName, const std::optional<String16>& clientFeatureId,
++        int cameraId, int cameraFacing,
++        int clientPid, int clientUid,
++        int servicePid):
++        Client(cameraService, cameraClient, clientPackageName, clientFeatureId,
++                String8::format("%d", cameraId), cameraId, cameraFacing, clientPid,
++                clientUid, servicePid)
++{
++    int callingPid = CameraThreadState::getCallingPid();
++    LOG1("CameraClient::CameraClient E (pid %d, id %d)", callingPid, cameraId);
++
++    mHardware = NULL;
++    mMsgEnabled = 0;
++    mSurface = 0;
++    mPreviewWindow = 0;
++    mDestructionStarted = false;
++
++    // Callback is disabled by default
++    mPreviewCallbackFlag = CAMERA_FRAME_CALLBACK_FLAG_NOOP;
++    mOrientation = getOrientation(0, mCameraFacing == CAMERA_FACING_FRONT);
++    mPlayShutterSound = true;
++    LOG1("CameraClient::CameraClient X (pid %d, id %d)", callingPid, cameraId);
++}
++
++status_t CameraClient::initialize(sp<CameraProviderManager> manager,
++        const String8& /*monitorTags*/) {
++    int callingPid = CameraThreadState::getCallingPid();
++    status_t res;
++
++    LOG1("CameraClient::initialize E (pid %d, id %d)", callingPid, mCameraId);
++
++    // Verify ops permissions
++    res = startCameraOps();
++    if (res != OK) {
++        return res;
++    }
++
++    char camera_device_name[10];
++    snprintf(camera_device_name, sizeof(camera_device_name), "%d", mCameraId);
++
++    mHardware = new CameraHardwareInterface(camera_device_name);
++    res = mHardware->initialize(manager);
++    if (res != OK) {
++        ALOGE("%s: Camera %d: unable to initialize device: %s (%d)",
++                __FUNCTION__, mCameraId, strerror(-res), res);
++        mHardware.clear();
++        return res;
++    }
++
++    mHardware->setCallbacks(notifyCallback,
++            dataCallback,
++            dataCallbackTimestamp,
++            handleCallbackTimestampBatch,
++            (void *)(uintptr_t)mCameraId);
++
++    // Enable zoom, error, focus, and metadata messages by default
++    enableMsgType(CAMERA_MSG_ERROR | CAMERA_MSG_ZOOM | CAMERA_MSG_FOCUS |
++                  CAMERA_MSG_PREVIEW_METADATA | CAMERA_MSG_FOCUS_MOVE);
++
++    LOG1("CameraClient::initialize X (pid %d, id %d)", callingPid, mCameraId);
++    return OK;
++}
++
++
++// tear down the client
++CameraClient::~CameraClient() {
++    mDestructionStarted = true;
++    int callingPid = CameraThreadState::getCallingPid();
++    LOG1("CameraClient::~CameraClient E (pid %d, this %p)", callingPid, this);
++
++    disconnect();
++    LOG1("CameraClient::~CameraClient X (pid %d, this %p)", callingPid, this);
++}
++
++status_t CameraClient::dump(int fd, const Vector<String16>& args) {
++    return BasicClient::dump(fd, args);
++}
++
++status_t CameraClient::dumpClient(int fd, const Vector<String16>& args) {
++    const size_t SIZE = 256;
++    char buffer[SIZE];
++
++    size_t len = snprintf(buffer, SIZE, "Client[%d] (%p) with UID %d\n",
++            mCameraId,
++            (getRemoteCallback() != NULL ?
++                    IInterface::asBinder(getRemoteCallback()).get() : NULL),
++            mClientUid);
++    len = (len > SIZE - 1) ? SIZE - 1 : len;
++    write(fd, buffer, len);
++
++    len = snprintf(buffer, SIZE, "Latest set parameters:\n");
++    len = (len > SIZE - 1) ? SIZE - 1 : len;
++    write(fd, buffer, len);
++
++    mLatestSetParameters.dump(fd, args);
++
++    const char *enddump = "\n\n";
++    write(fd, enddump, strlen(enddump));
++
++    sp<CameraHardwareInterface> hardware = mHardware;
++    if (hardware != nullptr) {
++        return hardware->dump(fd, args);
++    }
++    ALOGI("%s: camera device closed already, skip dumping", __FUNCTION__);
++    return OK;
++}
++
++// ----------------------------------------------------------------------------
++
++status_t CameraClient::checkPid() const {
++    int callingPid = CameraThreadState::getCallingPid();
++    if (callingPid == mClientPid) return NO_ERROR;
++
++    ALOGW("attempt to use a locked camera from a different process"
++         " (old pid %d, new pid %d)", mClientPid, callingPid);
++    return EBUSY;
++}
++
++status_t CameraClient::checkPidAndHardware() const {
++    if (mHardware == 0) {
++        ALOGE("attempt to use a camera after disconnect() (pid %d)",
++              CameraThreadState::getCallingPid());
++        return INVALID_OPERATION;
++    }
++    status_t result = checkPid();
++    if (result != NO_ERROR) return result;
++    return NO_ERROR;
++}
++
++status_t CameraClient::lock() {
++    int callingPid = CameraThreadState::getCallingPid();
++    LOG1("lock (pid %d)", callingPid);
++    Mutex::Autolock lock(mLock);
++
++    // lock camera to this client if the the camera is unlocked
++    if (mClientPid == 0) {
++        mClientPid = callingPid;
++        return NO_ERROR;
++    }
++
++    // returns NO_ERROR if the client already owns the camera, EBUSY otherwise
++    return checkPid();
++}
++
++status_t CameraClient::unlock() {
++    int callingPid = CameraThreadState::getCallingPid();
++    LOG1("unlock (pid %d)", callingPid);
++    Mutex::Autolock lock(mLock);
++
++    // allow anyone to use camera (after they lock the camera)
++    status_t result = checkPid();
++    if (result == NO_ERROR) {
++        if (mHardware->recordingEnabled()) {
++            ALOGE("Not allowed to unlock camera during recording.");
++            return INVALID_OPERATION;
++        }
++        mClientPid = 0;
++        LOG1("clear mRemoteCallback (pid %d)", callingPid);
++        // we need to remove the reference to ICameraClient so that when the app
++        // goes away, the reference count goes to 0.
++        mRemoteCallback.clear();
++    }
++    return result;
++}
++
++// connect a new client to the camera
++status_t CameraClient::connect(const sp<hardware::ICameraClient>& client) {
++    int callingPid = CameraThreadState::getCallingPid();
++    LOG1("connect E (pid %d)", callingPid);
++    Mutex::Autolock lock(mLock);
++
++    if (mClientPid != 0 && checkPid() != NO_ERROR) {
++        ALOGW("Tried to connect to a locked camera (old pid %d, new pid %d)",
++                mClientPid, callingPid);
++        return EBUSY;
++    }
++
++    if (mRemoteCallback != 0 &&
++        (IInterface::asBinder(client) == IInterface::asBinder(mRemoteCallback))) {
++        LOG1("Connect to the same client");
++        return NO_ERROR;
++    }
++
++    mPreviewCallbackFlag = CAMERA_FRAME_CALLBACK_FLAG_NOOP;
++    mClientPid = callingPid;
++    mRemoteCallback = client;
++
++    LOG1("connect X (pid %d)", callingPid);
++    return NO_ERROR;
++}
++
++static void disconnectWindow(const sp<ANativeWindow>& window) {
++    if (window != 0) {
++        status_t result = native_window_api_disconnect(window.get(),
++                NATIVE_WINDOW_API_CAMERA);
++        if (result != NO_ERROR) {
++            ALOGW("native_window_api_disconnect failed: %s (%d)", strerror(-result),
++                    result);
++        }
++    }
++}
++
++binder::Status CameraClient::disconnect() {
++    int callingPid = CameraThreadState::getCallingPid();
++    LOG1("disconnect E (pid %d)", callingPid);
++    Mutex::Autolock lock(mLock);
++
++    binder::Status res = binder::Status::ok();
++    // Allow both client and the cameraserver to disconnect at all times
++    if (callingPid != mClientPid && callingPid != mServicePid) {
++        ALOGW("different client - don't disconnect");
++        return res;
++    }
++
++    // Make sure disconnect() is done once and once only, whether it is called
++    // from the user directly, or called by the destructor.
++    if (mHardware == 0) return res;
++
++    LOG1("hardware teardown");
++    // Before destroying mHardware, we must make sure it's in the
++    // idle state.
++    // Turn off all messages.
++    disableMsgType(CAMERA_MSG_ALL_MSGS);
++    mHardware->stopPreview();
++    sCameraService->updateProxyDeviceState(
++            hardware::ICameraServiceProxy::CAMERA_STATE_IDLE,
++            mCameraIdStr, mCameraFacing, mClientPackageName,
++            hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
++    mHardware->cancelPicture();
++    // Release the hardware resources.
++    mHardware->release();
++
++    // Release the held ANativeWindow resources.
++    if (mPreviewWindow != 0) {
++        disconnectWindow(mPreviewWindow);
++        mPreviewWindow = 0;
++        mHardware->setPreviewWindow(mPreviewWindow);
++    }
++    mHardware.clear();
++
++    CameraService::Client::disconnect();
++
++    LOG1("disconnect X (pid %d)", callingPid);
++
++    return res;
++}
++
++// ----------------------------------------------------------------------------
++
++status_t CameraClient::setPreviewWindow(const sp<IBinder>& binder,
++        const sp<ANativeWindow>& window) {
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    // return if no change in surface.
++    if (binder == mSurface) {
++        return NO_ERROR;
++    }
++
++    if (window != 0) {
++        result = native_window_api_connect(window.get(), NATIVE_WINDOW_API_CAMERA);
++        if (result != NO_ERROR) {
++            ALOGE("native_window_api_connect failed: %s (%d)", strerror(-result),
++                    result);
++            return result;
++        }
++    }
++
++    // If preview has been already started, register preview buffers now.
++    if (mHardware->previewEnabled()) {
++        if (window != 0) {
++            mHardware->setPreviewScalingMode(NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);
++            mHardware->setPreviewTransform(mOrientation);
++            result = mHardware->setPreviewWindow(window);
++        }
++    }
++
++    if (result == NO_ERROR) {
++        // Everything has succeeded.  Disconnect the old window and remember the
++        // new window.
++        disconnectWindow(mPreviewWindow);
++        mSurface = binder;
++        mPreviewWindow = window;
++    } else {
++        // Something went wrong after we connected to the new window, so
++        // disconnect here.
++        disconnectWindow(window);
++    }
++
++    return result;
++}
++
++// set the buffer consumer that the preview will use
++status_t CameraClient::setPreviewTarget(
++        const sp<IGraphicBufferProducer>& bufferProducer) {
++    LOG1("setPreviewTarget(%p) (pid %d)", bufferProducer.get(),
++            CameraThreadState::getCallingPid());
++
++    sp<IBinder> binder;
++    sp<ANativeWindow> window;
++    if (bufferProducer != 0) {
++        binder = IInterface::asBinder(bufferProducer);
++        // Using controlledByApp flag to ensure that the buffer queue remains in
++        // async mode for the old camera API, where many applications depend
++        // on that behavior.
++        window = new Surface(bufferProducer, /*controlledByApp*/ true);
++    }
++    return setPreviewWindow(binder, window);
++}
++
++// set the preview callback flag to affect how the received frames from
++// preview are handled.
++void CameraClient::setPreviewCallbackFlag(int callback_flag) {
++    LOG1("setPreviewCallbackFlag(%d) (pid %d)", callback_flag, CameraThreadState::getCallingPid());
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) return;
++
++    mPreviewCallbackFlag = callback_flag;
++    if (mPreviewCallbackFlag & CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK) {
++        enableMsgType(CAMERA_MSG_PREVIEW_FRAME);
++    } else {
++        disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
++    }
++}
++
++status_t CameraClient::setPreviewCallbackTarget(
++        const sp<IGraphicBufferProducer>& callbackProducer) {
++    (void)callbackProducer;
++    ALOGE("%s: Unimplemented!", __FUNCTION__);
++    return INVALID_OPERATION;
++}
++
++// start preview mode
++status_t CameraClient::startPreview() {
++    LOG1("startPreview (pid %d)", CameraThreadState::getCallingPid());
++    return startCameraMode(CAMERA_PREVIEW_MODE);
++}
++
++// start recording mode
++status_t CameraClient::startRecording() {
++    LOG1("startRecording (pid %d)", CameraThreadState::getCallingPid());
++    return startCameraMode(CAMERA_RECORDING_MODE);
++}
++
++// start preview or recording
++status_t CameraClient::startCameraMode(camera_mode mode) {
++    LOG1("startCameraMode(%d)", mode);
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    switch(mode) {
++        case CAMERA_PREVIEW_MODE:
++            if (mSurface == 0 && mPreviewWindow == 0) {
++                LOG1("mSurface is not set yet.");
++                // still able to start preview in this case.
++            }
++            return startPreviewMode();
++        case CAMERA_RECORDING_MODE:
++            if (mSurface == 0 && mPreviewWindow == 0) {
++                ALOGE("mSurface or mPreviewWindow must be set before startRecordingMode.");
++                return INVALID_OPERATION;
++            }
++            return startRecordingMode();
++        default:
++            return UNKNOWN_ERROR;
++    }
++}
++
++status_t CameraClient::startPreviewMode() {
++    LOG1("startPreviewMode");
++    status_t result = NO_ERROR;
++
++    // if preview has been enabled, nothing needs to be done
++    if (mHardware->previewEnabled()) {
++        return NO_ERROR;
++    }
++
++    if (mPreviewWindow != 0) {
++        mHardware->setPreviewScalingMode(
++            NATIVE_WINDOW_SCALING_MODE_SCALE_TO_WINDOW);
++        mHardware->setPreviewTransform(mOrientation);
++    }
++    mHardware->setPreviewWindow(mPreviewWindow);
++    result = mHardware->startPreview();
++    if (result == NO_ERROR) {
++        sCameraService->updateProxyDeviceState(
++            hardware::ICameraServiceProxy::CAMERA_STATE_ACTIVE,
++            mCameraIdStr, mCameraFacing, mClientPackageName,
++            hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
++    }
++    return result;
++}
++
++status_t CameraClient::startRecordingMode() {
++    LOG1("startRecordingMode");
++    status_t result = NO_ERROR;
++
++    // if recording has been enabled, nothing needs to be done
++    if (mHardware->recordingEnabled()) {
++        return NO_ERROR;
++    }
++
++    // if preview has not been started, start preview first
++    if (!mHardware->previewEnabled()) {
++        result = startPreviewMode();
++        if (result != NO_ERROR) {
++            return result;
++        }
++    }
++
++    // start recording mode
++    enableMsgType(CAMERA_MSG_VIDEO_FRAME);
++    sCameraService->playSound(CameraService::SOUND_RECORDING_START);
++    result = mHardware->startRecording();
++    if (result != NO_ERROR) {
++        ALOGE("mHardware->startRecording() failed with status %d", result);
++    }
++    return result;
++}
++
++// stop preview mode
++void CameraClient::stopPreview() {
++    LOG1("stopPreview (pid %d)", CameraThreadState::getCallingPid());
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) return;
++
++
++    disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
++    mHardware->stopPreview();
++    sCameraService->updateProxyDeviceState(
++        hardware::ICameraServiceProxy::CAMERA_STATE_IDLE,
++        mCameraIdStr, mCameraFacing, mClientPackageName,
++        hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
++    mPreviewBuffer.clear();
++}
++
++// stop recording mode
++void CameraClient::stopRecording() {
++    LOG1("stopRecording (pid %d)", CameraThreadState::getCallingPid());
++    {
++        Mutex::Autolock lock(mLock);
++        if (checkPidAndHardware() != NO_ERROR) return;
++
++        disableMsgType(CAMERA_MSG_VIDEO_FRAME);
++        mHardware->stopRecording();
++        sCameraService->playSound(CameraService::SOUND_RECORDING_STOP);
++
++        mPreviewBuffer.clear();
++    }
++
++    {
++        Mutex::Autolock l(mAvailableCallbackBuffersLock);
++        if (!mAvailableCallbackBuffers.empty()) {
++            mAvailableCallbackBuffers.clear();
++        }
++    }
++}
++
++// release a recording frame
++void CameraClient::releaseRecordingFrame(const sp<IMemory>& mem) {
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) return;
++    if (mem == nullptr) {
++        android_errorWriteWithInfoLog(CameraService::SN_EVENT_LOG_ID, "26164272",
++                CameraThreadState::getCallingUid(), nullptr, 0);
++        return;
++    }
++
++    mHardware->releaseRecordingFrame(mem);
++}
++
++void CameraClient::releaseRecordingFrameHandle(native_handle_t *handle) {
++    if (handle == nullptr) return;
++    Mutex::Autolock lock(mLock);
++    sp<IMemory> dataPtr;
++    {
++        Mutex::Autolock l(mAvailableCallbackBuffersLock);
++        if (!mAvailableCallbackBuffers.empty()) {
++            dataPtr = mAvailableCallbackBuffers.back();
++            mAvailableCallbackBuffers.pop_back();
++        }
++    }
++
++    if (dataPtr == nullptr) {
++        ALOGE("%s: %d: No callback buffer available. Dropping a native handle.", __FUNCTION__,
++                __LINE__);
++        native_handle_close(handle);
++        native_handle_delete(handle);
++        return;
++    } else if (dataPtr->size() != sizeof(VideoNativeHandleMetadata)) {
++        ALOGE("%s: %d: Callback buffer size doesn't match VideoNativeHandleMetadata", __FUNCTION__,
++                __LINE__);
++        native_handle_close(handle);
++        native_handle_delete(handle);
++        return;
++    }
++
++    if (mHardware != nullptr) {
++        VideoNativeHandleMetadata *metadata = (VideoNativeHandleMetadata*)(dataPtr->unsecurePointer());
++        metadata->eType = kMetadataBufferTypeNativeHandleSource;
++        metadata->pHandle = handle;
++        mHardware->releaseRecordingFrame(dataPtr);
++    }
++}
++
++void CameraClient::releaseRecordingFrameHandleBatch(const std::vector<native_handle_t*>& handles) {
++    Mutex::Autolock lock(mLock);
++    bool disconnected = (mHardware == nullptr);
++    size_t n = handles.size();
++    std::vector<sp<IMemory>> frames;
++    if (!disconnected) {
++        frames.reserve(n);
++    }
++    bool error = false;
++    for (auto& handle : handles) {
++        sp<IMemory> dataPtr;
++        {
++            Mutex::Autolock l(mAvailableCallbackBuffersLock);
++            if (!mAvailableCallbackBuffers.empty()) {
++                dataPtr = mAvailableCallbackBuffers.back();
++                mAvailableCallbackBuffers.pop_back();
++            }
++        }
++
++        if (dataPtr == nullptr) {
++            ALOGE("%s: %d: No callback buffer available. Dropping frames.", __FUNCTION__,
++                    __LINE__);
++            error = true;
++            break;
++        } else if (dataPtr->size() != sizeof(VideoNativeHandleMetadata)) {
++            ALOGE("%s: %d: Callback buffer must be VideoNativeHandleMetadata", __FUNCTION__,
++                    __LINE__);
++            error = true;
++            break;
++        }
++
++        if (!disconnected) {
++            VideoNativeHandleMetadata *metadata = (VideoNativeHandleMetadata*)(dataPtr->unsecurePointer());
++            metadata->eType = kMetadataBufferTypeNativeHandleSource;
++            metadata->pHandle = handle;
++            frames.push_back(dataPtr);
++        }
++    }
++
++    if (error) {
++        for (auto& handle : handles) {
++            native_handle_close(handle);
++            native_handle_delete(handle);
++        }
++    } else if (!disconnected) {
++        mHardware->releaseRecordingFrameBatch(frames);
++    }
++    return;
++}
++
++status_t CameraClient::setVideoBufferMode(int32_t videoBufferMode) {
++    LOG1("setVideoBufferMode: %d", videoBufferMode);
++    bool enableMetadataInBuffers = false;
++
++    if (videoBufferMode == VIDEO_BUFFER_MODE_DATA_CALLBACK_METADATA) {
++        enableMetadataInBuffers = true;
++    } else if (videoBufferMode != VIDEO_BUFFER_MODE_DATA_CALLBACK_YUV) {
++        ALOGE("%s: %d: videoBufferMode %d is not supported.", __FUNCTION__, __LINE__,
++                videoBufferMode);
++        return BAD_VALUE;
++    }
++
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) {
++        return UNKNOWN_ERROR;
++    }
++
++    return mHardware->storeMetaDataInBuffers(enableMetadataInBuffers);
++}
++
++bool CameraClient::previewEnabled() {
++    LOG1("previewEnabled (pid %d)", CameraThreadState::getCallingPid());
++
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) return false;
++    return mHardware->previewEnabled();
++}
++
++bool CameraClient::recordingEnabled() {
++    LOG1("recordingEnabled (pid %d)", CameraThreadState::getCallingPid());
++
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) return false;
++    return mHardware->recordingEnabled();
++}
++
++status_t CameraClient::autoFocus() {
++    LOG1("autoFocus (pid %d)", CameraThreadState::getCallingPid());
++
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    return mHardware->autoFocus();
++}
++
++status_t CameraClient::cancelAutoFocus() {
++    LOG1("cancelAutoFocus (pid %d)", CameraThreadState::getCallingPid());
++
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    return mHardware->cancelAutoFocus();
++}
++
++// take a picture - image is returned in callback
++status_t CameraClient::takePicture(int msgType) {
++    LOG1("takePicture (pid %d): 0x%x", CameraThreadState::getCallingPid(), msgType);
++
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    if ((msgType & CAMERA_MSG_RAW_IMAGE) &&
++        (msgType & CAMERA_MSG_RAW_IMAGE_NOTIFY)) {
++        ALOGE("CAMERA_MSG_RAW_IMAGE and CAMERA_MSG_RAW_IMAGE_NOTIFY"
++                " cannot be both enabled");
++        return BAD_VALUE;
++    }
++
++    // We only accept picture related message types
++    // and ignore other types of messages for takePicture().
++    int picMsgType = msgType
++                        & (CAMERA_MSG_SHUTTER |
++                           CAMERA_MSG_POSTVIEW_FRAME |
++                           CAMERA_MSG_RAW_IMAGE |
++                           CAMERA_MSG_RAW_IMAGE_NOTIFY |
++                           CAMERA_MSG_COMPRESSED_IMAGE);
++
++    enableMsgType(picMsgType);
++
++    return mHardware->takePicture();
++}
++
++// set preview/capture parameters - key/value pairs
++status_t CameraClient::setParameters(const String8& params) {
++    LOG1("setParameters (pid %d) (%s)", CameraThreadState::getCallingPid(), params.string());
++
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    mLatestSetParameters = CameraParameters(params);
++    CameraParameters p(params);
++    return mHardware->setParameters(p);
++}
++
++// get preview/capture parameters - key/value pairs
++String8 CameraClient::getParameters() const {
++    Mutex::Autolock lock(mLock);
++    // The camera service can unconditionally get the parameters at all times
++    if (CameraThreadState::getCallingPid() != mServicePid && checkPidAndHardware() != NO_ERROR) {
++        return String8();
++    }
++
++    String8 params(mHardware->getParameters().flatten());
++    LOG1("getParameters (pid %d) (%s)", CameraThreadState::getCallingPid(), params.string());
++    return params;
++}
++
++// enable shutter sound
++status_t CameraClient::enableShutterSound(bool enable) {
++    LOG1("enableShutterSound (pid %d)", CameraThreadState::getCallingPid());
++
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    if (enable) {
++        mPlayShutterSound = true;
++        return OK;
++    }
++
++    mPlayShutterSound = false;
++    return OK;
++}
++
++status_t CameraClient::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2) {
++    LOG1("sendCommand (pid %d)", CameraThreadState::getCallingPid());
++    int orientation;
++    Mutex::Autolock lock(mLock);
++    status_t result = checkPidAndHardware();
++    if (result != NO_ERROR) return result;
++
++    if (cmd == CAMERA_CMD_SET_DISPLAY_ORIENTATION) {
++        // Mirror the preview if the camera is front-facing.
++        orientation = getOrientation(arg1, mCameraFacing == CAMERA_FACING_FRONT);
++        if (orientation == -1) return BAD_VALUE;
++
++        if (mOrientation != orientation) {
++            mOrientation = orientation;
++            if (mPreviewWindow != 0) {
++                mHardware->setPreviewTransform(mOrientation);
++            }
++        }
++        return OK;
++    } else if (cmd == CAMERA_CMD_ENABLE_SHUTTER_SOUND) {
++        switch (arg1) {
++            case 0:
++                return enableShutterSound(false);
++            case 1:
++                return enableShutterSound(true);
++            default:
++                return BAD_VALUE;
++        }
++        return OK;
++    } else if (cmd == CAMERA_CMD_PLAY_RECORDING_SOUND) {
++        sCameraService->playSound(CameraService::SOUND_RECORDING_START);
++    } else if (cmd == CAMERA_CMD_SET_VIDEO_BUFFER_COUNT) {
++        // Silently ignore this command
++        return INVALID_OPERATION;
++    } else if (cmd == CAMERA_CMD_PING) {
++        // If mHardware is 0, checkPidAndHardware will return error.
++        return OK;
++    }
++
++    return mHardware->sendCommand(cmd, arg1, arg2);
++}
++
++// ----------------------------------------------------------------------------
++
++void CameraClient::enableMsgType(int32_t msgType) {
++    android_atomic_or(msgType, &mMsgEnabled);
++    mHardware->enableMsgType(msgType);
++}
++
++void CameraClient::disableMsgType(int32_t msgType) {
++    android_atomic_and(~msgType, &mMsgEnabled);
++    mHardware->disableMsgType(msgType);
++}
++
++#define CHECK_MESSAGE_INTERVAL 10 // 10ms
++bool CameraClient::lockIfMessageWanted(int32_t msgType) {
++    int sleepCount = 0;
++    while (mMsgEnabled & msgType) {
++        if (mLock.tryLock() == NO_ERROR) {
++            if (sleepCount > 0) {
++                LOG1("lockIfMessageWanted(%d): waited for %d ms",
++                    msgType, sleepCount * CHECK_MESSAGE_INTERVAL);
++            }
++
++            // If messages are no longer enabled after acquiring lock, release and drop message
++            if ((mMsgEnabled & msgType) == 0) {
++                mLock.unlock();
++                break;
++            }
++
++            return true;
++        }
++        if (sleepCount++ == 0) {
++            LOG1("lockIfMessageWanted(%d): enter sleep", msgType);
++        }
++        usleep(CHECK_MESSAGE_INTERVAL * 1000);
++    }
++    ALOGW("lockIfMessageWanted(%d): dropped unwanted message", msgType);
++    return false;
++}
++
++sp<CameraClient> CameraClient::getClientFromCookie(void* user) {
++    String8 cameraId = String8::format("%d", (int)(intptr_t) user);
++    auto clientDescriptor = sCameraService->mActiveClientManager.get(cameraId);
++    if (clientDescriptor != nullptr) {
++        return sp<CameraClient>{
++                static_cast<CameraClient*>(clientDescriptor->getValue().get())};
++    }
++    return sp<CameraClient>{nullptr};
++}
++
++// Callback messages can be dispatched to internal handlers or pass to our
++// client's callback functions, depending on the message type.
++//
++// notifyCallback:
++//      CAMERA_MSG_SHUTTER              handleShutter
++//      (others)                        c->notifyCallback
++// dataCallback:
++//      CAMERA_MSG_PREVIEW_FRAME        handlePreviewData
++//      CAMERA_MSG_POSTVIEW_FRAME       handlePostview
++//      CAMERA_MSG_RAW_IMAGE            handleRawPicture
++//      CAMERA_MSG_COMPRESSED_IMAGE     handleCompressedPicture
++//      (others)                        c->dataCallback
++// dataCallbackTimestamp
++//      (others)                        c->dataCallbackTimestamp
++
++void CameraClient::notifyCallback(int32_t msgType, int32_t ext1,
++        int32_t ext2, void* user) {
++    LOG2("notifyCallback(%d)", msgType);
++
++    sp<CameraClient> client = getClientFromCookie(user);
++    if (client.get() == nullptr) return;
++
++    if (!client->lockIfMessageWanted(msgType)) return;
++
++    switch (msgType) {
++        case CAMERA_MSG_SHUTTER:
++            // ext1 is the dimension of the yuv picture.
++            client->handleShutter();
++            break;
++        default:
++            client->handleGenericNotify(msgType, ext1, ext2);
++            break;
++    }
++}
++
++void CameraClient::dataCallback(int32_t msgType,
++        const sp<IMemory>& dataPtr, camera_frame_metadata_t *metadata, void* user) {
++    LOG2("dataCallback(%d)", msgType);
++
++    sp<CameraClient> client = getClientFromCookie(user);
++    if (client.get() == nullptr) return;
++
++    if (!client->lockIfMessageWanted(msgType)) return;
++    if (dataPtr == 0 && metadata == NULL) {
++        ALOGE("Null data returned in data callback");
++        client->handleGenericNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
++        return;
++    }
++
++    switch (msgType & ~CAMERA_MSG_PREVIEW_METADATA) {
++        case CAMERA_MSG_PREVIEW_FRAME:
++            client->handlePreviewData(msgType, dataPtr, metadata);
++            break;
++        case CAMERA_MSG_POSTVIEW_FRAME:
++            client->handlePostview(dataPtr);
++            break;
++        case CAMERA_MSG_RAW_IMAGE:
++            client->handleRawPicture(dataPtr);
++            break;
++        case CAMERA_MSG_COMPRESSED_IMAGE:
++            client->handleCompressedPicture(dataPtr);
++            break;
++        default:
++            client->handleGenericData(msgType, dataPtr, metadata);
++            break;
++    }
++}
++
++void CameraClient::dataCallbackTimestamp(nsecs_t timestamp,
++        int32_t msgType, const sp<IMemory>& dataPtr, void* user) {
++    LOG2("dataCallbackTimestamp(%d)", msgType);
++
++    sp<CameraClient> client = getClientFromCookie(user);
++    if (client.get() == nullptr) return;
++
++    if (!client->lockIfMessageWanted(msgType)) return;
++
++    if (dataPtr == 0) {
++        ALOGE("Null data returned in data with timestamp callback");
++        client->handleGenericNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
++        return;
++    }
++
++    client->handleGenericDataTimestamp(timestamp, msgType, dataPtr);
++}
++
++void CameraClient::handleCallbackTimestampBatch(
++        int32_t msgType, const std::vector<HandleTimestampMessage>& msgs, void* user) {
++    LOG2("dataCallbackTimestampBatch");
++    sp<CameraClient> client = getClientFromCookie(user);
++    if (client.get() == nullptr) return;
++    if (!client->lockIfMessageWanted(msgType)) return;
++
++    sp<hardware::ICameraClient> c = client->mRemoteCallback;
++    client->mLock.unlock();
++    if (c != 0 && msgs.size() > 0) {
++        size_t n = msgs.size();
++        std::vector<nsecs_t> timestamps;
++        std::vector<native_handle_t*> handles;
++        timestamps.reserve(n);
++        handles.reserve(n);
++        for (auto& msg : msgs) {
++            native_handle_t* handle = nullptr;
++            if (msg.dataPtr->size() != sizeof(VideoNativeHandleMetadata)) {
++                ALOGE("%s: dataPtr does not contain VideoNativeHandleMetadata!", __FUNCTION__);
++                return;
++            }
++            // TODO: Using unsecurePointer() has some associated security pitfalls
++            //       (see declaration for details).
++            //       Either document why it is safe in this case or address the
++            //       issue (e.g. by copying).
++            VideoNativeHandleMetadata *metadata =
++                (VideoNativeHandleMetadata*)(msg.dataPtr->unsecurePointer());
++            if (metadata->eType == kMetadataBufferTypeNativeHandleSource) {
++                handle = metadata->pHandle;
++            }
++
++            if (handle == nullptr) {
++                ALOGE("%s: VideoNativeHandleMetadata type mismatch or null handle passed!",
++                        __FUNCTION__);
++                return;
++            }
++            {
++                Mutex::Autolock l(client->mAvailableCallbackBuffersLock);
++                client->mAvailableCallbackBuffers.push_back(msg.dataPtr);
++            }
++            timestamps.push_back(msg.timestamp);
++            handles.push_back(handle);
++        }
++        c->recordingFrameHandleCallbackTimestampBatch(timestamps, handles);
++    }
++}
++
++// snapshot taken callback
++void CameraClient::handleShutter(void) {
++    if (mPlayShutterSound) {
++        sCameraService->playSound(CameraService::SOUND_SHUTTER);
++    }
++
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    if (c != 0) {
++        mLock.unlock();
++        c->notifyCallback(CAMERA_MSG_SHUTTER, 0, 0);
++        if (!lockIfMessageWanted(CAMERA_MSG_SHUTTER)) return;
++    }
++    disableMsgType(CAMERA_MSG_SHUTTER);
++
++    // Shutters only happen in response to takePicture, so mark device as
++    // idle now, until preview is restarted
++    sCameraService->updateProxyDeviceState(
++        hardware::ICameraServiceProxy::CAMERA_STATE_IDLE,
++        mCameraIdStr, mCameraFacing, mClientPackageName,
++        hardware::ICameraServiceProxy::CAMERA_API_LEVEL_1);
++
++    mLock.unlock();
++}
++
++// preview callback - frame buffer update
++void CameraClient::handlePreviewData(int32_t msgType,
++                                              const sp<IMemory>& mem,
++                                              camera_frame_metadata_t *metadata) {
++    ssize_t offset;
++    size_t size;
++    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
++
++    // local copy of the callback flags
++    int flags = mPreviewCallbackFlag;
++
++    // is callback enabled?
++    if (!(flags & CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK)) {
++        // If the enable bit is off, the copy-out and one-shot bits are ignored
++        LOG2("frame callback is disabled");
++        mLock.unlock();
++        return;
++    }
++
++    // hold a strong pointer to the client
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++
++    // clear callback flags if no client or one-shot mode
++    if (c == 0 || (mPreviewCallbackFlag & CAMERA_FRAME_CALLBACK_FLAG_ONE_SHOT_MASK)) {
++        LOG2("Disable preview callback");
++        mPreviewCallbackFlag &= ~(CAMERA_FRAME_CALLBACK_FLAG_ONE_SHOT_MASK |
++                                  CAMERA_FRAME_CALLBACK_FLAG_COPY_OUT_MASK |
++                                  CAMERA_FRAME_CALLBACK_FLAG_ENABLE_MASK);
++        disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
++    }
++
++    if (c != 0) {
++        // Is the received frame copied out or not?
++        if (flags & CAMERA_FRAME_CALLBACK_FLAG_COPY_OUT_MASK) {
++            LOG2("frame is copied");
++            copyFrameAndPostCopiedFrame(msgType, c, heap, offset, size, metadata);
++        } else {
++            LOG2("frame is forwarded");
++            mLock.unlock();
++            c->dataCallback(msgType, mem, metadata);
++        }
++    } else {
++        mLock.unlock();
++    }
++}
++
++// picture callback - postview image ready
++void CameraClient::handlePostview(const sp<IMemory>& mem) {
++    disableMsgType(CAMERA_MSG_POSTVIEW_FRAME);
++
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    mLock.unlock();
++    if (c != 0) {
++        c->dataCallback(CAMERA_MSG_POSTVIEW_FRAME, mem, NULL);
++    }
++}
++
++// picture callback - raw image ready
++void CameraClient::handleRawPicture(const sp<IMemory>& mem) {
++    disableMsgType(CAMERA_MSG_RAW_IMAGE);
++
++    ssize_t offset;
++    size_t size;
++    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
++
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    mLock.unlock();
++    if (c != 0) {
++        c->dataCallback(CAMERA_MSG_RAW_IMAGE, mem, NULL);
++    }
++}
++
++// picture callback - compressed picture ready
++void CameraClient::handleCompressedPicture(const sp<IMemory>& mem) {
++    disableMsgType(CAMERA_MSG_COMPRESSED_IMAGE);
++
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    mLock.unlock();
++    if (c != 0) {
++        c->dataCallback(CAMERA_MSG_COMPRESSED_IMAGE, mem, NULL);
++    }
++}
++
++
++void CameraClient::handleGenericNotify(int32_t msgType,
++    int32_t ext1, int32_t ext2) {
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    mLock.unlock();
++    if (c != 0) {
++        c->notifyCallback(msgType, ext1, ext2);
++    }
++}
++
++void CameraClient::handleGenericData(int32_t msgType,
++    const sp<IMemory>& dataPtr, camera_frame_metadata_t *metadata) {
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    mLock.unlock();
++    if (c != 0) {
++        c->dataCallback(msgType, dataPtr, metadata);
++    }
++}
++
++void CameraClient::handleGenericDataTimestamp(nsecs_t timestamp,
++    int32_t msgType, const sp<IMemory>& dataPtr) {
++    sp<hardware::ICameraClient> c = mRemoteCallback;
++    mLock.unlock();
++    if (c != 0 && dataPtr != nullptr) {
++        native_handle_t* handle = nullptr;
++
++        // Check if dataPtr contains a VideoNativeHandleMetadata.
++        if (dataPtr->size() == sizeof(VideoNativeHandleMetadata)) {
++            // TODO: Using unsecurePointer() has some associated security pitfalls
++            //       (see declaration for details).
++            //       Either document why it is safe in this case or address the
++            //       issue (e.g. by copying).
++            VideoNativeHandleMetadata *metadata =
++                (VideoNativeHandleMetadata*)(dataPtr->unsecurePointer());
++            if (metadata->eType == kMetadataBufferTypeNativeHandleSource) {
++                handle = metadata->pHandle;
++            }
++        }
++
++        // If dataPtr contains a native handle, send it via recordingFrameHandleCallbackTimestamp.
++        if (handle != nullptr) {
++            {
++                Mutex::Autolock l(mAvailableCallbackBuffersLock);
++                mAvailableCallbackBuffers.push_back(dataPtr);
++            }
++            c->recordingFrameHandleCallbackTimestamp(timestamp, handle);
++        } else {
++            c->dataCallbackTimestamp(timestamp, msgType, dataPtr);
++        }
++    }
++}
++
++void CameraClient::copyFrameAndPostCopiedFrame(
++        int32_t msgType, const sp<hardware::ICameraClient>& client,
++        const sp<IMemoryHeap>& heap, size_t offset, size_t size,
++        camera_frame_metadata_t *metadata) {
++    LOG2("copyFrameAndPostCopiedFrame");
++    // It is necessary to copy out of pmem before sending this to
++    // the callback. For efficiency, reuse the same MemoryHeapBase
++    // provided it's big enough. Don't allocate the memory or
++    // perform the copy if there's no callback.
++    // hold the preview lock while we grab a reference to the preview buffer
++    sp<MemoryHeapBase> previewBuffer;
++
++    if (mPreviewBuffer == 0) {
++        mPreviewBuffer = new MemoryHeapBase(size, 0, NULL);
++    } else if (size > mPreviewBuffer->virtualSize()) {
++        mPreviewBuffer.clear();
++        mPreviewBuffer = new MemoryHeapBase(size, 0, NULL);
++    }
++    if (mPreviewBuffer == 0) {
++        ALOGE("failed to allocate space for preview buffer");
++        mLock.unlock();
++        return;
++    }
++    previewBuffer = mPreviewBuffer;
++
++    void* previewBufferBase = previewBuffer->base();
++    void* heapBase = heap->base();
++
++    if (heapBase == MAP_FAILED) {
++        ALOGE("%s: Failed to mmap heap for preview frame.", __FUNCTION__);
++        mLock.unlock();
++        return;
++    } else if (previewBufferBase == MAP_FAILED) {
++        ALOGE("%s: Failed to mmap preview buffer for preview frame.", __FUNCTION__);
++        mLock.unlock();
++        return;
++    }
++
++    memcpy(previewBufferBase, (uint8_t *) heapBase + offset, size);
++
++    sp<MemoryBase> frame = new MemoryBase(previewBuffer, 0, size);
++    if (frame == 0) {
++        ALOGE("failed to allocate space for frame callback");
++        mLock.unlock();
++        return;
++    }
++
++    mLock.unlock();
++    client->dataCallback(msgType, frame, metadata);
++}
++
++int CameraClient::getOrientation(int degrees, bool mirror) {
++    if (!mirror) {
++        if (degrees == 0) return 0;
++        else if (degrees == 90) return HAL_TRANSFORM_ROT_90;
++        else if (degrees == 180) return HAL_TRANSFORM_ROT_180;
++        else if (degrees == 270) return HAL_TRANSFORM_ROT_270;
++    } else {  // Do mirror (horizontal flip)
++        if (degrees == 0) {           // FLIP_H and ROT_0
++            return HAL_TRANSFORM_FLIP_H;
++        } else if (degrees == 90) {   // FLIP_H and ROT_90
++            return HAL_TRANSFORM_FLIP_H | HAL_TRANSFORM_ROT_90;
++        } else if (degrees == 180) {  // FLIP_H and ROT_180
++            return HAL_TRANSFORM_FLIP_V;
++        } else if (degrees == 270) {  // FLIP_H and ROT_270
++            return HAL_TRANSFORM_FLIP_V | HAL_TRANSFORM_ROT_90;
++        }
++    }
++    ALOGE("Invalid setDisplayOrientation degrees=%d", degrees);
++    return -1;
++}
++
++status_t CameraClient::setVideoTarget(const sp<IGraphicBufferProducer>& bufferProducer) {
++    (void)bufferProducer;
++    ALOGE("%s: %d: CameraClient doesn't support setting a video target.", __FUNCTION__, __LINE__);
++    return INVALID_OPERATION;
++}
++
++status_t CameraClient::setAudioRestriction(int mode) {
++    if (!isValidAudioRestriction(mode)) {
++        ALOGE("%s: invalid audio restriction mode %d", __FUNCTION__, mode);
++        return BAD_VALUE;
++    }
++
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) {
++        return INVALID_OPERATION;
++    }
++    return BasicClient::setAudioRestriction(mode);
++}
++
++int32_t CameraClient::getGlobalAudioRestriction() {
++    Mutex::Autolock lock(mLock);
++    if (checkPidAndHardware() != NO_ERROR) {
++        return INVALID_OPERATION;
++    }
++    return BasicClient::getServiceAudioRestriction();
++}
++
++// API1->Device1 does not support this feature
++status_t CameraClient::setRotateAndCropOverride(uint8_t /*rotateAndCrop*/) {
++    return OK;
++}
++
++}; // namespace android
+diff --git a/services/camera/libcameraservice/api1/CameraClient.h b/services/camera/libcameraservice/api1/CameraClient.h
+new file mode 100644
+index 0000000000..aacb00ee9a
+--- /dev/null
++++ b/services/camera/libcameraservice/api1/CameraClient.h
+@@ -0,0 +1,190 @@
++/*
++ * Copyright (C) 2012 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ANDROID_SERVERS_CAMERA_CAMERACLIENT_H
++#define ANDROID_SERVERS_CAMERA_CAMERACLIENT_H
++
++#include "CameraService.h"
++
++namespace android {
++
++class MemoryHeapBase;
++class CameraHardwareInterface;
++
++/**
++ * Interface between android.hardware.Camera API and Camera HAL device for version
++ * CAMERA_DEVICE_API_VERSION_1_0.
++ */
++
++class CameraClient : public CameraService::Client
++{
++public:
++    // ICamera interface (see ICamera for details)
++    virtual binder::Status  disconnect();
++    virtual status_t        connect(const sp<hardware::ICameraClient>& client);
++    virtual status_t        lock();
++    virtual status_t        unlock();
++    virtual status_t        setPreviewTarget(const sp<IGraphicBufferProducer>& bufferProducer);
++    virtual void            setPreviewCallbackFlag(int flag);
++    virtual status_t        setPreviewCallbackTarget(
++            const sp<IGraphicBufferProducer>& callbackProducer);
++    virtual status_t        startPreview();
++    virtual void            stopPreview();
++    virtual bool            previewEnabled();
++    virtual status_t        setVideoBufferMode(int32_t videoBufferMode);
++    virtual status_t        startRecording();
++    virtual void            stopRecording();
++    virtual bool            recordingEnabled();
++    virtual void            releaseRecordingFrame(const sp<IMemory>& mem);
++    virtual void            releaseRecordingFrameHandle(native_handle_t *handle);
++    virtual void            releaseRecordingFrameHandleBatch(
++                                    const std::vector<native_handle_t*>& handles);
++    virtual status_t        autoFocus();
++    virtual status_t        cancelAutoFocus();
++    virtual status_t        takePicture(int msgType);
++    virtual status_t        setParameters(const String8& params);
++    virtual String8         getParameters() const;
++    virtual status_t        sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
++    virtual status_t        setVideoTarget(const sp<IGraphicBufferProducer>& bufferProducer);
++    virtual status_t        setAudioRestriction(int mode);
++    virtual int32_t         getGlobalAudioRestriction();
++
++    virtual status_t        setRotateAndCropOverride(uint8_t override);
++
++    // Interface used by CameraService
++    CameraClient(const sp<CameraService>& cameraService,
++            const sp<hardware::ICameraClient>& cameraClient,
++            const String16& clientPackageName,
++            const std::optional<String16>& clientFeatureId,
++            int cameraId,
++            int cameraFacing,
++            int clientPid,
++            int clientUid,
++            int servicePid);
++    ~CameraClient();
++
++    virtual status_t initialize(sp<CameraProviderManager> manager,
++            const String8& monitorTags) override;
++
++    virtual status_t dump(int fd, const Vector<String16>& args);
++
++    virtual status_t dumpClient(int fd, const Vector<String16>& args);
++
++private:
++
++    // check whether the calling process matches mClientPid.
++    status_t                checkPid() const;
++    status_t                checkPidAndHardware() const;  // also check mHardware != 0
++
++    // these are internal functions used to set up preview buffers
++    status_t                registerPreviewBuffers();
++
++    // camera operation mode
++    enum camera_mode {
++        CAMERA_PREVIEW_MODE   = 0,  // frame automatically released
++        CAMERA_RECORDING_MODE = 1,  // frame has to be explicitly released by releaseRecordingFrame()
++    };
++    // these are internal functions used for preview/recording
++    status_t                startCameraMode(camera_mode mode);
++    status_t                startPreviewMode();
++    status_t                startRecordingMode();
++
++    // internal function used by sendCommand to enable/disable shutter sound.
++    status_t                enableShutterSound(bool enable);
++
++    static sp<CameraClient>        getClientFromCookie(void* user);
++
++    // these are static callback functions
++    static void             notifyCallback(int32_t msgType, int32_t ext1, int32_t ext2, void* user);
++    static void             dataCallback(int32_t msgType, const sp<IMemory>& dataPtr,
++            camera_frame_metadata_t *metadata, void* user);
++    static void             dataCallbackTimestamp(nsecs_t timestamp, int32_t msgType, const sp<IMemory>& dataPtr, void* user);
++    static void             handleCallbackTimestampBatch(
++                                    int32_t msgType, const std::vector<HandleTimestampMessage>&, void* user);
++    // handlers for messages
++    void                    handleShutter(void);
++    void                    handlePreviewData(int32_t msgType, const sp<IMemory>& mem,
++            camera_frame_metadata_t *metadata);
++    void                    handlePostview(const sp<IMemory>& mem);
++    void                    handleRawPicture(const sp<IMemory>& mem);
++    void                    handleCompressedPicture(const sp<IMemory>& mem);
++    void                    handleGenericNotify(int32_t msgType, int32_t ext1, int32_t ext2);
++    void                    handleGenericData(int32_t msgType, const sp<IMemory>& dataPtr,
++            camera_frame_metadata_t *metadata);
++    void                    handleGenericDataTimestamp(nsecs_t timestamp, int32_t msgType, const sp<IMemory>& dataPtr);
++
++    void                    copyFrameAndPostCopiedFrame(
++        int32_t msgType,
++        const sp<hardware::ICameraClient>& client,
++        const sp<IMemoryHeap>& heap,
++        size_t offset, size_t size,
++        camera_frame_metadata_t *metadata);
++
++    int                     getOrientation(int orientation, bool mirror);
++
++    status_t                setPreviewWindow(
++        const sp<IBinder>& binder,
++        const sp<ANativeWindow>& window);
++
++
++    // these are initialized in the constructor.
++    sp<CameraHardwareInterface>     mHardware;       // cleared after disconnect()
++    int                             mPreviewCallbackFlag;
++    int                             mOrientation;     // Current display orientation
++    bool                            mPlayShutterSound;
++    bool                            mLegacyMode; // camera2 api legacy mode?
++
++    // Ensures atomicity among the public methods
++    mutable Mutex                   mLock;
++    // This is a binder of Surface or Surface.
++    sp<IBinder>                     mSurface;
++    sp<ANativeWindow>               mPreviewWindow;
++
++    // If the user want us to return a copy of the preview frame (instead
++    // of the original one), we allocate mPreviewBuffer and reuse it if possible.
++    sp<MemoryHeapBase>              mPreviewBuffer;
++
++    // Debugging information
++    CameraParameters                mLatestSetParameters;
++
++    // mAvailableCallbackBuffers stores sp<IMemory> that HAL uses to send VideoNativeHandleMetadata.
++    // It will be used to send VideoNativeHandleMetadata back to HAL when camera receives the
++    // native handle from releaseRecordingFrameHandle.
++    Mutex                           mAvailableCallbackBuffersLock;
++    std::vector<sp<IMemory>>        mAvailableCallbackBuffers;
++
++    // We need to avoid the deadlock when the incoming command thread and
++    // the CameraHardwareInterface callback thread both want to grab mLock.
++    // An extra flag is used to tell the callback thread that it should stop
++    // trying to deliver the callback messages if the client is not
++    // interested in it anymore. For example, if the client is calling
++    // stopPreview(), the preview frame messages do not need to be delivered
++    // anymore.
++
++    // This function takes the same parameter as the enableMsgType() and
++    // disableMsgType() functions in CameraHardwareInterface.
++    void                    enableMsgType(int32_t msgType);
++    void                    disableMsgType(int32_t msgType);
++    volatile int32_t        mMsgEnabled;
++
++    // This function keeps trying to grab mLock, or give up if the message
++    // is found to be disabled. It returns true if mLock is grabbed.
++    bool                    lockIfMessageWanted(int32_t msgType);
++};
++
++}
++
++#endif
+diff --git a/services/camera/libcameraservice/common/CameraProviderManager.cpp b/services/camera/libcameraservice/common/CameraProviderManager.cpp
+index 4f2b878d26..4089c909ef 100644
+--- a/services/camera/libcameraservice/common/CameraProviderManager.cpp
++++ b/services/camera/libcameraservice/common/CameraProviderManager.cpp
+@@ -417,6 +417,46 @@ status_t CameraProviderManager::openSession(const std::string &id,
+     return mapToStatusT(status);
+ }
+ 
++status_t CameraProviderManager::openSession(const std::string &id,
++        const sp<device::V1_0::ICameraDeviceCallback>& callback,
++        /*out*/
++        sp<device::V1_0::ICameraDevice> *session) {
++
++    std::lock_guard<std::mutex> lock(mInterfaceMutex);
++
++    auto deviceInfo = findDeviceInfoLocked(id,
++            /*minVersion*/ {1,0}, /*maxVersion*/ {2,0});
++    if (deviceInfo == nullptr) return NAME_NOT_FOUND;
++
++    auto *deviceInfo1 = static_cast<ProviderInfo::DeviceInfo1*>(deviceInfo);
++    sp<ProviderInfo> parentProvider = deviceInfo->mParentProvider.promote();
++    if (parentProvider == nullptr) {
++        return DEAD_OBJECT;
++    }
++    const sp<provider::V2_4::ICameraProvider> provider = parentProvider->startProviderInterface();
++    if (provider == nullptr) {
++        return DEAD_OBJECT;
++    }
++    saveRef(DeviceMode::CAMERA, id, provider);
++
++    auto interface = deviceInfo1->startDeviceInterface<
++            CameraProviderManager::ProviderInfo::DeviceInfo1::InterfaceT>();
++    if (interface == nullptr) {
++        return DEAD_OBJECT;
++    }
++    hardware::Return<Status> status = interface->open(callback);
++    if (!status.isOk()) {
++        removeRef(DeviceMode::CAMERA, id);
++        ALOGE("%s: Transaction error opening a session for camera device %s: %s",
++                __FUNCTION__, id.c_str(), status.description().c_str());
++        return DEAD_OBJECT;
++    }
++    if (status == Status::OK) {
++        *session = interface;
++    }
++    return mapToStatusT(status);
++}
++
+ void CameraProviderManager::saveRef(DeviceMode usageType, const std::string &cameraId,
+         sp<provider::V2_4::ICameraProvider> provider) {
+     if (!kEnableLazyHal) {
+@@ -1616,9 +1656,9 @@ status_t CameraProviderManager::ProviderInfo::addDevice(const std::string& name,
+     std::unique_ptr<DeviceInfo> deviceInfo;
+     switch (major) {
+         case 1:
+-            ALOGE("%s: Device %s: Unsupported HIDL device HAL major version %d:", __FUNCTION__,
+-                    name.c_str(), major);
+-            return BAD_VALUE;
++            deviceInfo = initializeDeviceInfo<DeviceInfo1>(name, mProviderTagid,
++                    id, minor);
++            break;
+         case 3:
+             deviceInfo = initializeDeviceInfo<DeviceInfo3>(name, mProviderTagid,
+                     id, minor);
+@@ -2191,6 +2231,35 @@ CameraProviderManager::ProviderInfo::startDeviceInterface(const std::string &nam
+     return nullptr;
+ }
+ 
++template<>
++sp<device::V1_0::ICameraDevice>
++CameraProviderManager::ProviderInfo::startDeviceInterface
++        <device::V1_0::ICameraDevice>(const std::string &name) {
++    Status status;
++    sp<device::V1_0::ICameraDevice> cameraInterface;
++    hardware::Return<void> ret;
++    const sp<provider::V2_4::ICameraProvider> interface = startProviderInterface();
++    if (interface == nullptr) {
++        return nullptr;
++    }
++    ret = interface->getCameraDeviceInterface_V1_x(name, [&status, &cameraInterface](
++        Status s, sp<device::V1_0::ICameraDevice> interface) {
++                status = s;
++                cameraInterface = interface;
++            });
++    if (!ret.isOk()) {
++        ALOGE("%s: Transaction error trying to obtain interface for camera device %s: %s",
++                __FUNCTION__, name.c_str(), ret.description().c_str());
++        return nullptr;
++    }
++    if (status != Status::OK) {
++        ALOGE("%s: Unable to obtain interface for camera device %s: %s", __FUNCTION__,
++                name.c_str(), statusToString(status));
++        return nullptr;
++    }
++    return cameraInterface;
++}
++
+ template<>
+ sp<device::V3_2::ICameraDevice>
+ CameraProviderManager::ProviderInfo::startDeviceInterface
+@@ -2244,6 +2313,126 @@ status_t CameraProviderManager::ProviderInfo::DeviceInfo::setTorchMode(Interface
+     return mapToStatusT(s);
+ }
+ 
++CameraProviderManager::ProviderInfo::DeviceInfo1::DeviceInfo1(const std::string& name,
++        const metadata_vendor_id_t tagId, const std::string &id,
++        uint16_t minorVersion,
++        const CameraResourceCost& resourceCost,
++        sp<ProviderInfo> parentProvider,
++        const std::vector<std::string>& publicCameraIds,
++        sp<InterfaceT> interface) :
++        DeviceInfo(name, tagId, id, hardware::hidl_version{1, minorVersion},
++                   publicCameraIds, resourceCost, parentProvider) {
++    // Get default parameters and initialize flash unit availability
++    // Requires powering on the camera device
++    hardware::Return<Status> status = interface->open(nullptr);
++    if (!status.isOk()) {
++        ALOGE("%s: Transaction error opening camera device %s to check for a flash unit: %s",
++                __FUNCTION__, id.c_str(), status.description().c_str());
++        return;
++    }
++    if (status != Status::OK) {
++        ALOGE("%s: Unable to open camera device %s to check for a flash unit: %s", __FUNCTION__,
++                id.c_str(), CameraProviderManager::statusToString(status));
++        return;
++    }
++    hardware::Return<void> ret;
++    ret = interface->getParameters([this](const hardware::hidl_string& parms) {
++                mDefaultParameters.unflatten(String8(parms.c_str()));
++            });
++    if (!ret.isOk()) {
++        ALOGE("%s: Transaction error reading camera device %s params to check for a flash unit: %s",
++                __FUNCTION__, id.c_str(), status.description().c_str());
++        return;
++    }
++    const char *flashMode =
++            mDefaultParameters.get(CameraParameters::KEY_SUPPORTED_FLASH_MODES);
++    if (flashMode && strstr(flashMode, CameraParameters::FLASH_MODE_TORCH)) {
++        mHasFlashUnit = true;
++    }
++
++    status_t res = cacheCameraInfo(interface);
++    if (res != OK) {
++        ALOGE("%s: Could not cache CameraInfo", __FUNCTION__);
++        return;
++    }
++
++    ret = interface->close();
++    if (!ret.isOk()) {
++        ALOGE("%s: Transaction error closing camera device %s after check for a flash unit: %s",
++                __FUNCTION__, id.c_str(), status.description().c_str());
++    }
++
++    if (!kEnableLazyHal) {
++        // Save HAL reference indefinitely
++        mSavedInterface = interface;
++    }
++}
++
++CameraProviderManager::ProviderInfo::DeviceInfo1::~DeviceInfo1() {}
++
++status_t CameraProviderManager::ProviderInfo::DeviceInfo1::setTorchMode(bool enabled) {
++    return setTorchModeForDevice<InterfaceT>(enabled);
++}
++
++status_t CameraProviderManager::ProviderInfo::DeviceInfo1::getCameraInfo(
++        hardware::CameraInfo *info) const {
++    if (info == nullptr) return BAD_VALUE;
++    *info = mInfo;
++    return OK;
++}
++
++status_t CameraProviderManager::ProviderInfo::DeviceInfo1::cacheCameraInfo(
++        sp<CameraProviderManager::ProviderInfo::DeviceInfo1::InterfaceT> interface) {
++    Status status;
++    device::V1_0::CameraInfo cInfo;
++    hardware::Return<void> ret;
++    ret = interface->getCameraInfo([&status, &cInfo](Status s, device::V1_0::CameraInfo camInfo) {
++                status = s;
++                cInfo = camInfo;
++            });
++    if (!ret.isOk()) {
++        ALOGE("%s: Transaction error reading camera info from device %s: %s",
++                __FUNCTION__, mId.c_str(), ret.description().c_str());
++        return DEAD_OBJECT;
++    }
++    if (status != Status::OK) {
++        return mapToStatusT(status);
++    }
++
++    switch(cInfo.facing) {
++        case device::V1_0::CameraFacing::BACK:
++            mInfo.facing = hardware::CAMERA_FACING_BACK;
++            break;
++        case device::V1_0::CameraFacing::EXTERNAL:
++            // Map external to front for legacy API
++        case device::V1_0::CameraFacing::FRONT:
++            mInfo.facing = hardware::CAMERA_FACING_FRONT;
++            break;
++        default:
++            ALOGW("%s: Device %s: Unknown camera facing: %d",
++                    __FUNCTION__, mId.c_str(), cInfo.facing);
++            mInfo.facing = hardware::CAMERA_FACING_BACK;
++    }
++    mInfo.orientation = cInfo.orientation;
++
++    return OK;
++}
++
++status_t CameraProviderManager::ProviderInfo::DeviceInfo1::dumpState(int fd) {
++    native_handle_t* handle = native_handle_create(1,0);
++    handle->data[0] = fd;
++    const sp<InterfaceT> interface = startDeviceInterface<InterfaceT>();
++    if (interface == nullptr) {
++        return DEAD_OBJECT;
++    }
++    hardware::Return<Status> s = interface->dumpState(handle);
++    native_handle_delete(handle);
++    if (!s.isOk()) {
++        return INVALID_OPERATION;
++    }
++    return mapToStatusT(s);
++}
++
+ CameraProviderManager::ProviderInfo::DeviceInfo3::DeviceInfo3(const std::string& name,
+         const metadata_vendor_id_t tagId, const std::string &id,
+         uint16_t minorVersion,
+diff --git a/services/camera/libcameraservice/common/CameraProviderManager.h b/services/camera/libcameraservice/common/CameraProviderManager.h
+index 1bdbb440ae..c1d5c164ea 100644
+--- a/services/camera/libcameraservice/common/CameraProviderManager.h
++++ b/services/camera/libcameraservice/common/CameraProviderManager.h
+@@ -283,6 +283,11 @@ public:
+             /*out*/
+             sp<hardware::camera::device::V3_2::ICameraDeviceSession> *session);
+ 
++    status_t openSession(const std::string &id,
++            const sp<hardware::camera::device::V1_0::ICameraDeviceCallback>& callback,
++            /*out*/
++            sp<hardware::camera::device::V1_0::ICameraDevice> *session);
++
+     /**
+      * Save the ICameraProvider while it is being used by a camera or torch client
+      */
+@@ -535,6 +540,27 @@ private:
+         // physical camera IDs.
+         std::vector<std::string> mProviderPublicCameraIds;
+ 
++        // HALv1-specific camera fields, including the actual device interface
++        struct DeviceInfo1 : public DeviceInfo {
++            typedef hardware::camera::device::V1_0::ICameraDevice InterfaceT;
++
++            virtual status_t setTorchMode(bool enabled) override;
++            virtual status_t getCameraInfo(hardware::CameraInfo *info) const override;
++            //In case of Device1Info assume that we are always API1 compatible
++            virtual bool isAPI1Compatible() const override { return true; }
++            virtual status_t dumpState(int fd) override;
++            DeviceInfo1(const std::string& name, const metadata_vendor_id_t tagId,
++                    const std::string &id, uint16_t minorVersion,
++                    const hardware::camera::common::V1_0::CameraResourceCost& resourceCost,
++                    sp<ProviderInfo> parentProvider,
++                    const std::vector<std::string>& publicCameraIds,
++                    sp<InterfaceT> interface);
++            virtual ~DeviceInfo1();
++        private:
++            CameraParameters2 mDefaultParameters;
++            status_t cacheCameraInfo(sp<InterfaceT> interface);
++        };
++
+         // HALv3-specific camera fields, including the actual device interface
+         struct DeviceInfo3 : public DeviceInfo {
+             typedef hardware::camera::device::V3_2::ICameraDevice InterfaceT;
+diff --git a/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp b/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp
+new file mode 100644
+index 0000000000..62ef681668
+--- /dev/null
++++ b/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp
+@@ -0,0 +1,818 @@
++/*
++ * Copyright (C) 2017 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++#define LOG_TAG "CameraHardwareInterface"
++//#define LOG_NDEBUG 0
++
++#include <inttypes.h>
++#include <media/hardware/HardwareAPI.h> // For VideoNativeHandleMetadata
++#include "CameraHardwareInterface.h"
++
++namespace android {
++
++using namespace hardware::camera::device::V1_0;
++using namespace hardware::camera::common::V1_0;
++using hardware::hidl_handle;
++
++CameraHardwareInterface::~CameraHardwareInterface()
++{
++    ALOGI("Destroying camera %s", mName.string());
++    if (mHidlDevice != nullptr) {
++        mHidlDevice->close();
++        mHidlDevice.clear();
++        cleanupCirculatingBuffers();
++    }
++}
++
++status_t CameraHardwareInterface::initialize(sp<CameraProviderManager> manager) {
++    ALOGI("Opening camera %s", mName.string());
++
++    status_t ret = manager->openSession(mName.string(), this, &mHidlDevice);
++    if (ret != OK) {
++        ALOGE("%s: openSession failed! %s (%d)", __FUNCTION__, strerror(-ret), ret);
++    }
++    return ret;
++}
++
++status_t CameraHardwareInterface::setPreviewScalingMode(int scalingMode)
++{
++    int rc = OK;
++    mPreviewScalingMode = scalingMode;
++    if (mPreviewWindow != nullptr) {
++        rc = native_window_set_scaling_mode(mPreviewWindow.get(),
++                scalingMode);
++    }
++    return rc;
++}
++
++status_t CameraHardwareInterface::setPreviewTransform(int transform) {
++    int rc = OK;
++    mPreviewTransform = transform;
++    if (mPreviewWindow != nullptr) {
++        rc = native_window_set_buffers_transform(mPreviewWindow.get(),
++                mPreviewTransform);
++    }
++    return rc;
++}
++
++/**
++ * Implementation of android::hardware::camera::device::V1_0::ICameraDeviceCallback
++ */
++hardware::Return<void> CameraHardwareInterface::notifyCallback(
++        NotifyCallbackMsg msgType, int32_t ext1, int32_t ext2) {
++    sNotifyCb((int32_t) msgType, ext1, ext2, (void*) this);
++    return hardware::Void();
++}
++
++hardware::Return<uint32_t> CameraHardwareInterface::registerMemory(
++        const hardware::hidl_handle& descriptor,
++        uint32_t bufferSize, uint32_t bufferCount) {
++    if (descriptor->numFds != 1) {
++        ALOGE("%s: camera memory descriptor has numFds %d (expect 1)",
++                __FUNCTION__, descriptor->numFds);
++        return 0;
++    }
++    if (descriptor->data[0] < 0) {
++        ALOGE("%s: camera memory descriptor has FD %d (expect >= 0)",
++                __FUNCTION__, descriptor->data[0]);
++        return 0;
++    }
++
++    camera_memory_t* mem = sGetMemory(descriptor->data[0], bufferSize, bufferCount, this);
++    sp<CameraHeapMemory> camMem(static_cast<CameraHeapMemory *>(mem->handle));
++    int memPoolId = camMem->mHeap->getHeapID();
++    if (memPoolId < 0) {
++        ALOGE("%s: CameraHeapMemory has FD %d (expect >= 0)", __FUNCTION__, memPoolId);
++        return 0;
++    }
++    std::lock_guard<std::mutex> lock(mHidlMemPoolMapLock);
++    mHidlMemPoolMap.insert(std::make_pair(memPoolId, mem));
++    return memPoolId;
++}
++
++hardware::Return<void> CameraHardwareInterface::unregisterMemory(uint32_t memId) {
++    camera_memory_t* mem = nullptr;
++    {
++        std::lock_guard<std::mutex> lock(mHidlMemPoolMapLock);
++        if (mHidlMemPoolMap.count(memId) == 0) {
++            ALOGE("%s: memory pool ID %d not found", __FUNCTION__, memId);
++            return hardware::Void();
++        }
++        mem = mHidlMemPoolMap.at(memId);
++        mHidlMemPoolMap.erase(memId);
++    }
++    sPutMemory(mem);
++    return hardware::Void();
++}
++
++hardware::Return<void> CameraHardwareInterface::dataCallback(
++        DataCallbackMsg msgType, uint32_t data, uint32_t bufferIndex,
++        const hardware::camera::device::V1_0::CameraFrameMetadata& metadata) {
++    camera_memory_t* mem = nullptr;
++    {
++        std::lock_guard<std::mutex> lock(mHidlMemPoolMapLock);
++        if (mHidlMemPoolMap.count(data) == 0) {
++            ALOGE("%s: memory pool ID %d not found", __FUNCTION__, data);
++            return hardware::Void();
++        }
++        mem = mHidlMemPoolMap.at(data);
++    }
++    camera_frame_metadata_t md;
++    md.number_of_faces = metadata.faces.size();
++    md.faces = (camera_face_t*) metadata.faces.data();
++    sDataCb((int32_t) msgType, mem, bufferIndex, &md, this);
++    return hardware::Void();
++}
++
++hardware::Return<void> CameraHardwareInterface::dataCallbackTimestamp(
++        DataCallbackMsg msgType, uint32_t data,
++        uint32_t bufferIndex, int64_t timestamp) {
++    camera_memory_t* mem = nullptr;
++    {
++        std::lock_guard<std::mutex> lock(mHidlMemPoolMapLock);
++        if (mHidlMemPoolMap.count(data) == 0) {
++            ALOGE("%s: memory pool ID %d not found", __FUNCTION__, data);
++            return hardware::Void();
++        }
++        mem = mHidlMemPoolMap.at(data);
++    }
++    sDataCbTimestamp(timestamp, (int32_t) msgType, mem, bufferIndex, this);
++    return hardware::Void();
++}
++
++hardware::Return<void> CameraHardwareInterface::handleCallbackTimestamp(
++        DataCallbackMsg msgType, const hidl_handle& frameData, uint32_t data,
++        uint32_t bufferIndex, int64_t timestamp) {
++    camera_memory_t* mem = nullptr;
++    {
++        std::lock_guard<std::mutex> lock(mHidlMemPoolMapLock);
++        if (mHidlMemPoolMap.count(data) == 0) {
++            ALOGE("%s: memory pool ID %d not found", __FUNCTION__, data);
++            return hardware::Void();
++        }
++        mem = mHidlMemPoolMap.at(data);
++    }
++    sp<CameraHeapMemory> heapMem(static_cast<CameraHeapMemory *>(mem->handle));
++    // TODO: Using unsecurePointer() has some associated security pitfalls
++    //       (see declaration for details).
++    //       Either document why it is safe in this case or address the
++    //       issue (e.g. by copying).
++    VideoNativeHandleMetadata* md = (VideoNativeHandleMetadata*)
++            heapMem->mBuffers[bufferIndex]->unsecurePointer();
++    md->pHandle = const_cast<native_handle_t*>(frameData.getNativeHandle());
++    sDataCbTimestamp(timestamp, (int32_t) msgType, mem, bufferIndex, this);
++    return hardware::Void();
++}
++
++hardware::Return<void> CameraHardwareInterface::handleCallbackTimestampBatch(
++        DataCallbackMsg msgType,
++        const hardware::hidl_vec<hardware::camera::device::V1_0::HandleTimestampMessage>& messages) {
++    std::vector<android::HandleTimestampMessage> msgs;
++    msgs.reserve(messages.size());
++    {
++        std::lock_guard<std::mutex> lock(mHidlMemPoolMapLock);
++        for (const auto& hidl_msg : messages) {
++            if (mHidlMemPoolMap.count(hidl_msg.data) == 0) {
++                ALOGE("%s: memory pool ID %d not found", __FUNCTION__, hidl_msg.data);
++                return hardware::Void();
++            }
++            sp<CameraHeapMemory> mem(
++                    static_cast<CameraHeapMemory *>(mHidlMemPoolMap.at(hidl_msg.data)->handle));
++
++            if (hidl_msg.bufferIndex >= mem->mNumBufs) {
++                ALOGE("%s: invalid buffer index %d, max allowed is %d", __FUNCTION__,
++                     hidl_msg.bufferIndex, mem->mNumBufs);
++                return hardware::Void();
++            }
++            // TODO: Using unsecurePointer() has some associated security pitfalls
++            //       (see declaration for details).
++            //       Either document why it is safe in this case or address the
++            //       issue (e.g. by copying).
++            VideoNativeHandleMetadata* md = (VideoNativeHandleMetadata*)
++                    mem->mBuffers[hidl_msg.bufferIndex]->unsecurePointer();
++            md->pHandle = const_cast<native_handle_t*>(hidl_msg.frameData.getNativeHandle());
++
++            msgs.push_back({hidl_msg.timestamp, mem->mBuffers[hidl_msg.bufferIndex]});
++        }
++    }
++    mDataCbTimestampBatch((int32_t) msgType, msgs, mCbUser);
++    return hardware::Void();
++}
++
++std::pair<bool, uint64_t> CameraHardwareInterface::getBufferId(
++        ANativeWindowBuffer* anb) {
++    std::lock_guard<std::mutex> lock(mBufferIdMapLock);
++
++    buffer_handle_t& buf = anb->handle;
++    auto it = mBufferIdMap.find(buf);
++    if (it == mBufferIdMap.end()) {
++        uint64_t bufId = mNextBufferId++;
++        mBufferIdMap[buf] = bufId;
++        mReversedBufMap[bufId] = anb;
++        return std::make_pair(true, bufId);
++    } else {
++        return std::make_pair(false, it->second);
++    }
++}
++
++void CameraHardwareInterface::cleanupCirculatingBuffers() {
++    std::lock_guard<std::mutex> lock(mBufferIdMapLock);
++    mBufferIdMap.clear();
++    mReversedBufMap.clear();
++}
++
++hardware::Return<void>
++CameraHardwareInterface::dequeueBuffer(dequeueBuffer_cb _hidl_cb) {
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return hardware::Void();
++    }
++    ANativeWindowBuffer* anb;
++    int rc = native_window_dequeue_buffer_and_wait(a, &anb);
++    Status s = Status::INTERNAL_ERROR;
++    uint64_t bufferId = 0;
++    uint32_t stride = 0;
++    hidl_handle buf = nullptr;
++    if (rc == OK) {
++        s = Status::OK;
++        auto pair = getBufferId(anb);
++        buf = (pair.first) ? anb->handle : nullptr;
++        bufferId = pair.second;
++        stride = anb->stride;
++    }
++
++    _hidl_cb(s, bufferId, buf, stride);
++    return hardware::Void();
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::enqueueBuffer(uint64_t bufferId) {
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return Status::INTERNAL_ERROR;
++    }
++    if (mReversedBufMap.count(bufferId) == 0) {
++        ALOGE("%s: bufferId %" PRIu64 " not found", __FUNCTION__, bufferId);
++        return Status::ILLEGAL_ARGUMENT;
++    }
++    int rc = a->queueBuffer(a, mReversedBufMap.at(bufferId), -1);
++    if (rc == 0) {
++        return Status::OK;
++    }
++    return Status::INTERNAL_ERROR;
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::cancelBuffer(uint64_t bufferId) {
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return Status::INTERNAL_ERROR;
++    }
++    if (mReversedBufMap.count(bufferId) == 0) {
++        ALOGE("%s: bufferId %" PRIu64 " not found", __FUNCTION__, bufferId);
++        return Status::ILLEGAL_ARGUMENT;
++    }
++    int rc = a->cancelBuffer(a, mReversedBufMap.at(bufferId), -1);
++    if (rc == 0) {
++        return Status::OK;
++    }
++    return Status::INTERNAL_ERROR;
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::setBufferCount(uint32_t count) {
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a != nullptr) {
++        // Workaround for b/27039775
++        // Previously, setting the buffer count would reset the buffer
++        // queue's flag that allows for all buffers to be dequeued on the
++        // producer side, instead of just the producer's declared max count,
++        // if no filled buffers have yet been queued by the producer.  This
++        // reset no longer happens, but some HALs depend on this behavior,
++        // so it needs to be maintained for HAL backwards compatibility.
++        // Simulate the prior behavior by disconnecting/reconnecting to the
++        // window and setting the values again.  This has the drawback of
++        // actually causing memory reallocation, which may not have happened
++        // in the past.
++        native_window_api_disconnect(a, NATIVE_WINDOW_API_CAMERA);
++        native_window_api_connect(a, NATIVE_WINDOW_API_CAMERA);
++        if (mPreviewScalingMode != NOT_SET) {
++            native_window_set_scaling_mode(a, mPreviewScalingMode);
++        }
++        if (mPreviewTransform != NOT_SET) {
++            native_window_set_buffers_transform(a, mPreviewTransform);
++        }
++        if (mPreviewWidth != NOT_SET) {
++            native_window_set_buffers_dimensions(a,
++                    mPreviewWidth, mPreviewHeight);
++            native_window_set_buffers_format(a, mPreviewFormat);
++        }
++        if (mPreviewUsage != 0) {
++            native_window_set_usage(a, mPreviewUsage);
++        }
++        if (mPreviewSwapInterval != NOT_SET) {
++            a->setSwapInterval(a, mPreviewSwapInterval);
++        }
++        if (mPreviewCrop.left != NOT_SET) {
++            native_window_set_crop(a, &(mPreviewCrop));
++        }
++    }
++    int rc = native_window_set_buffer_count(a, count);
++    if (rc == OK) {
++        cleanupCirculatingBuffers();
++        return Status::OK;
++    }
++    return Status::INTERNAL_ERROR;
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::setBuffersGeometry(
++        uint32_t w, uint32_t h, hardware::graphics::common::V1_0::PixelFormat format) {
++    Status s = Status::INTERNAL_ERROR;
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return s;
++    }
++    mPreviewWidth = w;
++    mPreviewHeight = h;
++    mPreviewFormat = (int) format;
++    int rc = native_window_set_buffers_dimensions(a, w, h);
++    if (rc == OK) {
++        rc = native_window_set_buffers_format(a, mPreviewFormat);
++    }
++    if (rc == OK) {
++        cleanupCirculatingBuffers();
++        s = Status::OK;
++    }
++    return s;
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::setCrop(int32_t left, int32_t top, int32_t right, int32_t bottom) {
++    Status s = Status::INTERNAL_ERROR;
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return s;
++    }
++    mPreviewCrop.left = left;
++    mPreviewCrop.top = top;
++    mPreviewCrop.right = right;
++    mPreviewCrop.bottom = bottom;
++    int rc = native_window_set_crop(a, &mPreviewCrop);
++    if (rc == OK) {
++        s = Status::OK;
++    }
++    return s;
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::setUsage(hardware::graphics::common::V1_0::BufferUsage usage) {
++    Status s = Status::INTERNAL_ERROR;
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return s;
++    }
++    mPreviewUsage = static_cast<uint64_t> (usage);
++    int rc = native_window_set_usage(a, mPreviewUsage);
++    if (rc == OK) {
++        cleanupCirculatingBuffers();
++        s = Status::OK;
++    }
++    return s;
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::setSwapInterval(int32_t interval) {
++    Status s = Status::INTERNAL_ERROR;
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return s;
++    }
++    mPreviewSwapInterval = interval;
++    int rc = a->setSwapInterval(a, interval);
++    if (rc == OK) {
++        s = Status::OK;
++    }
++    return s;
++}
++
++hardware::Return<void>
++CameraHardwareInterface::getMinUndequeuedBufferCount(getMinUndequeuedBufferCount_cb _hidl_cb) {
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return hardware::Void();
++    }
++    int count = 0;
++    int rc = a->query(a, NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS, &count);
++    Status s = Status::INTERNAL_ERROR;
++    if (rc == OK) {
++        s = Status::OK;
++    }
++    _hidl_cb(s, count);
++    return hardware::Void();
++}
++
++hardware::Return<Status>
++CameraHardwareInterface::setTimestamp(int64_t timestamp) {
++    Status s = Status::INTERNAL_ERROR;
++    ANativeWindow *a = mPreviewWindow.get();
++    if (a == nullptr) {
++        ALOGE("%s: preview window is null", __FUNCTION__);
++        return s;
++    }
++    int rc = native_window_set_buffers_timestamp(a, timestamp);
++    if (rc == OK) {
++        s = Status::OK;
++    }
++    return s;
++}
++
++status_t CameraHardwareInterface::setPreviewWindow(const sp<ANativeWindow>& buf)
++{
++    ALOGV("%s(%s) buf %p", __FUNCTION__, mName.string(), buf.get());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        mPreviewWindow = buf;
++        if (buf != nullptr) {
++            if (mPreviewScalingMode != NOT_SET) {
++                setPreviewScalingMode(mPreviewScalingMode);
++            }
++            if (mPreviewTransform != NOT_SET) {
++                setPreviewTransform(mPreviewTransform);
++            }
++        }
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->setPreviewWindow(buf.get() ? this : nullptr));
++    }
++    return INVALID_OPERATION;
++}
++
++void CameraHardwareInterface::setCallbacks(notify_callback notify_cb,
++        data_callback data_cb,
++        data_callback_timestamp data_cb_timestamp,
++        data_callback_timestamp_batch data_cb_timestamp_batch,
++        void* user)
++{
++    mNotifyCb = notify_cb;
++    mDataCb = data_cb;
++    mDataCbTimestamp = data_cb_timestamp;
++    mDataCbTimestampBatch = data_cb_timestamp_batch;
++    mCbUser = user;
++
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++}
++
++void CameraHardwareInterface::enableMsgType(int32_t msgType)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        mHidlDevice->enableMsgType(msgType);
++    }
++}
++
++void CameraHardwareInterface::disableMsgType(int32_t msgType)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        mHidlDevice->disableMsgType(msgType);
++    }
++}
++
++int CameraHardwareInterface::msgTypeEnabled(int32_t msgType)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return mHidlDevice->msgTypeEnabled(msgType);
++    }
++    return false;
++}
++
++status_t CameraHardwareInterface::startPreview()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->startPreview());
++    }
++    return INVALID_OPERATION;
++}
++
++void CameraHardwareInterface::stopPreview()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        mHidlDevice->stopPreview();
++    }
++}
++
++int CameraHardwareInterface::previewEnabled()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return mHidlDevice->previewEnabled();
++    }
++    return false;
++}
++
++status_t CameraHardwareInterface::storeMetaDataInBuffers(int enable)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->storeMetaDataInBuffers(enable));
++    }
++    return enable ? INVALID_OPERATION: OK;
++}
++
++status_t CameraHardwareInterface::startRecording()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->startRecording());
++    }
++    return INVALID_OPERATION;
++}
++
++/**
++ * Stop a previously started recording.
++ */
++void CameraHardwareInterface::stopRecording()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        mHidlDevice->stopRecording();
++    }
++}
++
++/**
++ * Returns true if recording is enabled.
++ */
++int CameraHardwareInterface::recordingEnabled()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return mHidlDevice->recordingEnabled();
++    }
++    return false;
++}
++
++void CameraHardwareInterface::releaseRecordingFrame(const sp<IMemory>& mem)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    ssize_t offset;
++    size_t size;
++    sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
++    int heapId = heap->getHeapID();
++    int bufferIndex = offset / size;
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        if (size == sizeof(VideoNativeHandleMetadata)) {
++            // TODO: Using unsecurePointer() has some associated security pitfalls
++            //       (see declaration for details).
++            //       Either document why it is safe in this case or address the
++            //       issue (e.g. by copying).
++            VideoNativeHandleMetadata* md = (VideoNativeHandleMetadata*) mem->unsecurePointer();
++            // Caching the handle here because md->pHandle will be subject to HAL's edit
++            native_handle_t* nh = md->pHandle;
++            hidl_handle frame = nh;
++            mHidlDevice->releaseRecordingFrameHandle(heapId, bufferIndex, frame);
++            native_handle_close(nh);
++            native_handle_delete(nh);
++        } else {
++            mHidlDevice->releaseRecordingFrame(heapId, bufferIndex);
++        }
++    }
++}
++
++void CameraHardwareInterface::releaseRecordingFrameBatch(const std::vector<sp<IMemory>>& frames)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    size_t n = frames.size();
++    std::vector<VideoFrameMessage> msgs;
++    msgs.reserve(n);
++    for (auto& mem : frames) {
++        if (CC_LIKELY(mHidlDevice != nullptr)) {
++            ssize_t offset;
++            size_t size;
++            sp<IMemoryHeap> heap = mem->getMemory(&offset, &size);
++            if (size == sizeof(VideoNativeHandleMetadata)) {
++                uint32_t heapId = heap->getHeapID();
++                uint32_t bufferIndex = offset / size;
++                // TODO: Using unsecurePointer() has some associated security pitfalls
++                //       (see declaration for details).
++                //       Either document why it is safe in this case or address the
++                //       issue (e.g. by copying).
++                VideoNativeHandleMetadata* md = (VideoNativeHandleMetadata*) mem->unsecurePointer();
++                // Caching the handle here because md->pHandle will be subject to HAL's edit
++                native_handle_t* nh = md->pHandle;
++                VideoFrameMessage msg;
++                msgs.push_back({nh, heapId, bufferIndex});
++            } else {
++                ALOGE("%s only supports VideoNativeHandleMetadata mode", __FUNCTION__);
++                return;
++            }
++        }
++    }
++
++    mHidlDevice->releaseRecordingFrameHandleBatch(msgs);
++
++    for (auto& msg : msgs) {
++        native_handle_t* nh = const_cast<native_handle_t*>(msg.frameData.getNativeHandle());
++        native_handle_close(nh);
++        native_handle_delete(nh);
++    }
++}
++
++status_t CameraHardwareInterface::autoFocus()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->autoFocus());
++    }
++    return INVALID_OPERATION;
++}
++
++status_t CameraHardwareInterface::cancelAutoFocus()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->cancelAutoFocus());
++    }
++    return INVALID_OPERATION;
++}
++
++status_t CameraHardwareInterface::takePicture()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->takePicture());
++    }
++    return INVALID_OPERATION;
++}
++
++status_t CameraHardwareInterface::cancelPicture()
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->cancelPicture());
++    }
++    return INVALID_OPERATION;
++}
++
++status_t CameraHardwareInterface::setParameters(const CameraParameters &params)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->setParameters(params.flatten().string()));
++    }
++    return INVALID_OPERATION;
++}
++
++CameraParameters CameraHardwareInterface::getParameters() const
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    CameraParameters parms;
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        hardware::hidl_string outParam;
++        mHidlDevice->getParameters(
++                [&outParam](const auto& outStr) {
++                    outParam = outStr;
++                });
++        String8 tmp(outParam.c_str());
++        parms.unflatten(tmp);
++    }
++    return parms;
++}
++
++status_t CameraHardwareInterface::sendCommand(int32_t cmd, int32_t arg1, int32_t arg2)
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        return CameraProviderManager::mapToStatusT(
++                mHidlDevice->sendCommand((CommandType) cmd, arg1, arg2));
++    }
++    return INVALID_OPERATION;
++}
++
++/**
++ * Release the hardware resources owned by this object.  Note that this is
++ * *not* done in the destructor.
++ */
++void CameraHardwareInterface::release() {
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        mHidlDevice->close();
++        mHidlDevice.clear();
++    }
++}
++
++/**
++ * Dump state of the camera hardware
++ */
++status_t CameraHardwareInterface::dump(int fd, const Vector<String16>& /*args*/) const
++{
++    ALOGV("%s(%s)", __FUNCTION__, mName.string());
++    if (CC_LIKELY(mHidlDevice != nullptr)) {
++        native_handle_t* handle = native_handle_create(1,0);
++        handle->data[0] = fd;
++        Status s = mHidlDevice->dumpState(handle);
++        native_handle_delete(handle);
++        return CameraProviderManager::mapToStatusT(s);
++    }
++    return OK; // It's fine if the HAL doesn't implement dump()
++}
++
++void CameraHardwareInterface::sNotifyCb(int32_t msg_type, int32_t ext1,
++                        int32_t ext2, void *user)
++{
++    ALOGV("%s", __FUNCTION__);
++    CameraHardwareInterface *object =
++            static_cast<CameraHardwareInterface *>(user);
++    object->mNotifyCb(msg_type, ext1, ext2, object->mCbUser);
++}
++
++void CameraHardwareInterface::sDataCb(int32_t msg_type,
++                      const camera_memory_t *data, unsigned int index,
++                      camera_frame_metadata_t *metadata,
++                      void *user)
++{
++    ALOGV("%s", __FUNCTION__);
++    CameraHardwareInterface *object =
++            static_cast<CameraHardwareInterface *>(user);
++    sp<CameraHeapMemory> mem(static_cast<CameraHeapMemory *>(data->handle));
++    if (index >= mem->mNumBufs) {
++        ALOGE("%s: invalid buffer index %d, max allowed is %d", __FUNCTION__,
++             index, mem->mNumBufs);
++        return;
++    }
++    object->mDataCb(msg_type, mem->mBuffers[index], metadata, object->mCbUser);
++}
++
++void CameraHardwareInterface::sDataCbTimestamp(nsecs_t timestamp, int32_t msg_type,
++                         const camera_memory_t *data, unsigned index,
++                         void *user)
++{
++    ALOGV("%s", __FUNCTION__);
++    CameraHardwareInterface *object =
++            static_cast<CameraHardwareInterface *>(user);
++    // Start refcounting the heap object from here on.  When the clients
++    // drop all references, it will be destroyed (as well as the enclosed
++    // MemoryHeapBase.
++    sp<CameraHeapMemory> mem(static_cast<CameraHeapMemory *>(data->handle));
++    if (index >= mem->mNumBufs) {
++        ALOGE("%s: invalid buffer index %d, max allowed is %d", __FUNCTION__,
++             index, mem->mNumBufs);
++        return;
++    }
++    object->mDataCbTimestamp(timestamp, msg_type, mem->mBuffers[index], object->mCbUser);
++}
++
++camera_memory_t* CameraHardwareInterface::sGetMemory(
++        int fd, size_t buf_size, uint_t num_bufs,
++        void *user __attribute__((unused)))
++{
++    CameraHeapMemory *mem;
++    if (fd < 0) {
++        mem = new CameraHeapMemory(buf_size, num_bufs);
++    } else {
++        mem = new CameraHeapMemory(fd, buf_size, num_bufs);
++    }
++    mem->incStrong(mem);
++    return &mem->handle;
++}
++
++void CameraHardwareInterface::sPutMemory(camera_memory_t *data)
++{
++    if (!data) {
++        return;
++    }
++
++    CameraHeapMemory *mem = static_cast<CameraHeapMemory *>(data->handle);
++    mem->decStrong(mem);
++}
++
++}; // namespace android
+diff --git a/services/camera/libcameraservice/device1/CameraHardwareInterface.h b/services/camera/libcameraservice/device1/CameraHardwareInterface.h
+new file mode 100644
+index 0000000000..e519b04cdd
+--- /dev/null
++++ b/services/camera/libcameraservice/device1/CameraHardwareInterface.h
+@@ -0,0 +1,488 @@
++/*
++ * Copyright (C) 2008 The Android Open Source Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#ifndef ANDROID_HARDWARE_CAMERA_HARDWARE_INTERFACE_H
++#define ANDROID_HARDWARE_CAMERA_HARDWARE_INTERFACE_H
++
++#include <unordered_map>
++#include <binder/IMemory.h>
++#include <binder/MemoryBase.h>
++#include <binder/MemoryHeapBase.h>
++#include <utils/RefBase.h>
++#include <ui/GraphicBuffer.h>
++#include <camera/Camera.h>
++#include <camera/CameraParameters.h>
++#include <system/window.h>
++#include <hardware/camera.h>
++
++#include <common/CameraProviderManager.h>
++
++namespace android {
++
++typedef void (*notify_callback)(int32_t msgType,
++                            int32_t ext1,
++                            int32_t ext2,
++                            void* user);
++
++typedef void (*data_callback)(int32_t msgType,
++                            const sp<IMemory> &dataPtr,
++                            camera_frame_metadata_t *metadata,
++                            void* user);
++
++typedef void (*data_callback_timestamp)(nsecs_t timestamp,
++                            int32_t msgType,
++                            const sp<IMemory> &dataPtr,
++                            void *user);
++
++struct HandleTimestampMessage {
++    nsecs_t timestamp;
++    const sp<IMemory> dataPtr;
++};
++
++typedef void (*data_callback_timestamp_batch)(
++        int32_t msgType,
++        const std::vector<HandleTimestampMessage>&, void* user);
++
++/**
++ * CameraHardwareInterface.h defines the interface to the
++ * camera hardware abstraction layer, used for setting and getting
++ * parameters, live previewing, and taking pictures. It is used for
++ * HAL devices with version CAMERA_DEVICE_API_VERSION_1_0 only.
++ *
++ * It is a referenced counted interface with RefBase as its base class.
++ * CameraService calls openCameraHardware() to retrieve a strong pointer to the
++ * instance of this interface and may be called multiple times. The
++ * following steps describe a typical sequence:
++ *
++ *   -# After CameraService calls openCameraHardware(), getParameters() and
++ *      setParameters() are used to initialize the camera instance.
++ *   -# startPreview() is called.
++ *
++ * Prior to taking a picture, CameraService often calls autofocus(). When auto
++ * focusing has completed, the camera instance sends a CAMERA_MSG_FOCUS notification,
++ * which informs the application whether focusing was successful. The camera instance
++ * only sends this message once and it is up  to the application to call autoFocus()
++ * again if refocusing is desired.
++ *
++ * CameraService calls takePicture() to request the camera instance take a
++ * picture. At this point, if a shutter, postview, raw, and/or compressed
++ * callback is desired, the corresponding message must be enabled. Any memory
++ * provided in a data callback must be copied if it's needed after returning.
++ */
++
++class CameraHardwareInterface :
++        public virtual RefBase,
++        public virtual hardware::camera::device::V1_0::ICameraDeviceCallback,
++        public virtual hardware::camera::device::V1_0::ICameraDevicePreviewCallback {
++
++public:
++    explicit CameraHardwareInterface(const char *name):
++            mHidlDevice(nullptr),
++            mName(name),
++            mPreviewScalingMode(NOT_SET),
++            mPreviewTransform(NOT_SET),
++            mPreviewWidth(NOT_SET),
++            mPreviewHeight(NOT_SET),
++            mPreviewFormat(NOT_SET),
++            mPreviewUsage(0),
++            mPreviewSwapInterval(NOT_SET),
++            mPreviewCrop{NOT_SET,NOT_SET,NOT_SET,NOT_SET}
++    {
++    }
++
++    ~CameraHardwareInterface();
++
++    status_t initialize(sp<CameraProviderManager> manager);
++
++    /** Set the ANativeWindow to which preview frames are sent */
++    status_t setPreviewWindow(const sp<ANativeWindow>& buf);
++
++    status_t setPreviewScalingMode(int scalingMode);
++
++    status_t setPreviewTransform(int transform);
++
++    /** Set the notification and data callbacks */
++    void setCallbacks(notify_callback notify_cb,
++                      data_callback data_cb,
++                      data_callback_timestamp data_cb_timestamp,
++                      data_callback_timestamp_batch data_cb_timestamp_batch,
++                      void* user);
++
++    /**
++     * The following three functions all take a msgtype,
++     * which is a bitmask of the messages defined in
++     * include/ui/Camera.h
++     */
++
++    /**
++     * Enable a message, or set of messages.
++     */
++    void enableMsgType(int32_t msgType);
++
++    /**
++     * Disable a message, or a set of messages.
++     *
++     * Once received a call to disableMsgType(CAMERA_MSG_VIDEO_FRAME), camera hal
++     * should not rely on its client to call releaseRecordingFrame() to release
++     * video recording frames sent out by the cameral hal before and after the
++     * disableMsgType(CAMERA_MSG_VIDEO_FRAME) call. Camera hal clients must not
++     * modify/access any video recording frame after calling
++     * disableMsgType(CAMERA_MSG_VIDEO_FRAME).
++     */
++    void disableMsgType(int32_t msgType);
++
++    /**
++     * Query whether a message, or a set of messages, is enabled.
++     * Note that this is operates as an AND, if any of the messages
++     * queried are off, this will return false.
++     */
++    int msgTypeEnabled(int32_t msgType);
++
++    /**
++     * Start preview mode.
++     */
++    status_t startPreview();
++
++    /**
++     * Stop a previously started preview.
++     */
++    void stopPreview();
++
++    /**
++     * Returns true if preview is enabled.
++     */
++    int previewEnabled();
++
++    /**
++     * Request the camera hal to store meta data or real YUV data in
++     * the video buffers send out via CAMERA_MSG_VIDEO_FRRAME for a
++     * recording session. If it is not called, the default camera
++     * hal behavior is to store real YUV data in the video buffers.
++     *
++     * This method should be called before startRecording() in order
++     * to be effective.
++     *
++     * If meta data is stored in the video buffers, it is up to the
++     * receiver of the video buffers to interpret the contents and
++     * to find the actual frame data with the help of the meta data
++     * in the buffer. How this is done is outside of the scope of
++     * this method.
++     *
++     * Some camera hal may not support storing meta data in the video
++     * buffers, but all camera hal should support storing real YUV data
++     * in the video buffers. If the camera hal does not support storing
++     * the meta data in the video buffers when it is requested to do
++     * do, INVALID_OPERATION must be returned. It is very useful for
++     * the camera hal to pass meta data rather than the actual frame
++     * data directly to the video encoder, since the amount of the
++     * uncompressed frame data can be very large if video size is large.
++     *
++     * @param enable if true to instruct the camera hal to store
++     *      meta data in the video buffers; false to instruct
++     *      the camera hal to store real YUV data in the video
++     *      buffers.
++     *
++     * @return OK on success.
++     */
++
++    status_t storeMetaDataInBuffers(int enable);
++
++    /**
++     * Start record mode. When a record image is available a CAMERA_MSG_VIDEO_FRAME
++     * message is sent with the corresponding frame. Every record frame must be released
++     * by a cameral hal client via releaseRecordingFrame() before the client calls
++     * disableMsgType(CAMERA_MSG_VIDEO_FRAME). After the client calls
++     * disableMsgType(CAMERA_MSG_VIDEO_FRAME), it is camera hal's responsibility
++     * to manage the life-cycle of the video recording frames, and the client must
++     * not modify/access any video recording frames.
++     */
++    status_t startRecording();
++
++    /**
++     * Stop a previously started recording.
++     */
++    void stopRecording();
++
++    /**
++     * Returns true if recording is enabled.
++     */
++    int recordingEnabled();
++
++    /**
++     * Release a record frame previously returned by CAMERA_MSG_VIDEO_FRAME.
++     *
++     * It is camera hal client's responsibility to release video recording
++     * frames sent out by the camera hal before the camera hal receives
++     * a call to disableMsgType(CAMERA_MSG_VIDEO_FRAME). After it receives
++     * the call to disableMsgType(CAMERA_MSG_VIDEO_FRAME), it is camera hal's
++     * responsibility of managing the life-cycle of the video recording
++     * frames.
++     */
++    void releaseRecordingFrame(const sp<IMemory>& mem);
++
++    /**
++     * Release a batch of recording frames previously returned by
++     * CAMERA_MSG_VIDEO_FRAME. This method only supports frames that are
++     * stored as VideoNativeHandleMetadata.
++     *
++     * It is camera hal client's responsibility to release video recording
++     * frames sent out by the camera hal before the camera hal receives
++     * a call to disableMsgType(CAMERA_MSG_VIDEO_FRAME). After it receives
++     * the call to disableMsgType(CAMERA_MSG_VIDEO_FRAME), it is camera hal's
++     * responsibility of managing the life-cycle of the video recording
++     * frames.
++     */
++    void releaseRecordingFrameBatch(const std::vector<sp<IMemory>>& frames);
++
++    /**
++     * Start auto focus, the notification callback routine is called
++     * with CAMERA_MSG_FOCUS once when focusing is complete. autoFocus()
++     * will be called again if another auto focus is needed.
++     */
++    status_t autoFocus();
++
++    /**
++     * Cancels auto-focus function. If the auto-focus is still in progress,
++     * this function will cancel it. Whether the auto-focus is in progress
++     * or not, this function will return the focus position to the default.
++     * If the camera does not support auto-focus, this is a no-op.
++     */
++    status_t cancelAutoFocus();
++
++    /**
++     * Take a picture.
++     */
++    status_t takePicture();
++
++    /**
++     * Cancel a picture that was started with takePicture.  Calling this
++     * method when no picture is being taken is a no-op.
++     */
++    status_t cancelPicture();
++
++    /**
++     * Set the camera parameters. This returns BAD_VALUE if any parameter is
++     * invalid or not supported. */
++    status_t setParameters(const CameraParameters &params);
++
++    /** Return the camera parameters. */
++    CameraParameters getParameters() const;
++
++    /**
++     * Send command to camera driver.
++     */
++    status_t sendCommand(int32_t cmd, int32_t arg1, int32_t arg2);
++
++    /**
++     * Release the hardware resources owned by this object.  Note that this is
++     * *not* done in the destructor.
++     */
++    void release();
++
++    /**
++     * Dump state of the camera hardware
++     */
++    status_t dump(int fd, const Vector<String16>& /*args*/) const;
++
++private:
++    sp<hardware::camera::device::V1_0::ICameraDevice> mHidlDevice;
++    String8 mName;
++
++    static void sNotifyCb(int32_t msg_type, int32_t ext1,
++                            int32_t ext2, void *user);
++
++    static void sDataCb(int32_t msg_type,
++                          const camera_memory_t *data, unsigned int index,
++                          camera_frame_metadata_t *metadata,
++                          void *user);
++
++    static void sDataCbTimestamp(nsecs_t timestamp, int32_t msg_type,
++                             const camera_memory_t *data, unsigned index,
++                             void *user);
++
++    // This is a utility class that combines a MemoryHeapBase and a MemoryBase
++    // in one.  Since we tend to use them in a one-to-one relationship, this is
++    // handy.
++    class CameraHeapMemory : public RefBase {
++    public:
++        CameraHeapMemory(int fd, size_t buf_size, uint_t num_buffers = 1) :
++                         mBufSize(buf_size),
++                         mNumBufs(num_buffers)
++        {
++            mHeap = new MemoryHeapBase(fd, buf_size * num_buffers);
++            commonInitialization();
++        }
++
++        explicit CameraHeapMemory(size_t buf_size, uint_t num_buffers = 1) :
++                                  mBufSize(buf_size),
++                                  mNumBufs(num_buffers)
++        {
++            mHeap = new MemoryHeapBase(buf_size * num_buffers);
++            commonInitialization();
++        }
++
++        void commonInitialization()
++        {
++            handle.data = mHeap->base();
++            handle.size = mBufSize * mNumBufs;
++            handle.handle = this;
++
++            mBuffers = new sp<MemoryBase>[mNumBufs];
++            for (uint_t i = 0; i < mNumBufs; i++)
++                mBuffers[i] = new MemoryBase(mHeap,
++                                             i * mBufSize,
++                                             mBufSize);
++
++            handle.release = sPutMemory;
++        }
++
++        virtual ~CameraHeapMemory()
++        {
++            delete [] mBuffers;
++        }
++
++        size_t mBufSize;
++        uint_t mNumBufs;
++        sp<MemoryHeapBase> mHeap;
++        sp<MemoryBase> *mBuffers;
++
++        camera_memory_t handle;
++    };
++
++    static camera_memory_t* sGetMemory(int fd, size_t buf_size, uint_t num_bufs,
++                                         void *user __attribute__((unused)));
++
++    static void sPutMemory(camera_memory_t *data);
++
++    std::pair<bool, uint64_t> getBufferId(ANativeWindowBuffer* anb);
++    void cleanupCirculatingBuffers();
++
++    /**
++     * Implementation of android::hardware::camera::device::V1_0::ICameraDeviceCallback
++     */
++    hardware::Return<void> notifyCallback(
++            hardware::camera::device::V1_0::NotifyCallbackMsg msgType,
++            int32_t ext1, int32_t ext2) override;
++    hardware::Return<uint32_t> registerMemory(
++            const hardware::hidl_handle& descriptor,
++            uint32_t bufferSize, uint32_t bufferCount) override;
++    hardware::Return<void> unregisterMemory(uint32_t memId) override;
++    hardware::Return<void> dataCallback(
++            hardware::camera::device::V1_0::DataCallbackMsg msgType,
++            uint32_t data, uint32_t bufferIndex,
++            const hardware::camera::device::V1_0::CameraFrameMetadata& metadata) override;
++    hardware::Return<void> dataCallbackTimestamp(
++            hardware::camera::device::V1_0::DataCallbackMsg msgType,
++            uint32_t data, uint32_t bufferIndex, int64_t timestamp) override;
++    hardware::Return<void> handleCallbackTimestamp(
++            hardware::camera::device::V1_0::DataCallbackMsg msgType,
++            const hardware::hidl_handle& frameData, uint32_t data,
++            uint32_t bufferIndex, int64_t timestamp) override;
++    hardware::Return<void> handleCallbackTimestampBatch(
++            hardware::camera::device::V1_0::DataCallbackMsg msgType,
++            const hardware::hidl_vec<
++                    hardware::camera::device::V1_0::HandleTimestampMessage>&) override;
++
++    /**
++     * Implementation of android::hardware::camera::device::V1_0::ICameraDevicePreviewCallback
++     */
++    hardware::Return<void> dequeueBuffer(dequeueBuffer_cb _hidl_cb) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            enqueueBuffer(uint64_t bufferId) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            cancelBuffer(uint64_t bufferId) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            setBufferCount(uint32_t count) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            setBuffersGeometry(uint32_t w, uint32_t h,
++                    hardware::graphics::common::V1_0::PixelFormat format) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            setCrop(int32_t left, int32_t top, int32_t right, int32_t bottom) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            setUsage(hardware::graphics::common::V1_0::BufferUsage usage) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            setSwapInterval(int32_t interval) override;
++    hardware::Return<void> getMinUndequeuedBufferCount(
++        getMinUndequeuedBufferCount_cb _hidl_cb) override;
++    hardware::Return<hardware::camera::common::V1_0::Status>
++            setTimestamp(int64_t timestamp) override;
++
++    sp<ANativeWindow>        mPreviewWindow;
++
++    notify_callback               mNotifyCb;
++    data_callback                 mDataCb;
++    data_callback_timestamp       mDataCbTimestamp;
++    data_callback_timestamp_batch mDataCbTimestampBatch;
++    void *mCbUser;
++
++    // Cached values for preview stream parameters
++    static const int NOT_SET = -1;
++    int mPreviewScalingMode;
++    int mPreviewTransform;
++    int mPreviewWidth;
++    int mPreviewHeight;
++    int mPreviewFormat;
++    uint64_t mPreviewUsage;
++    int mPreviewSwapInterval;
++    android_native_rect_t mPreviewCrop;
++
++    struct BufferHasher {
++        size_t operator()(const buffer_handle_t& buf) const {
++            if (buf == nullptr)
++                return 0;
++
++            size_t result = 1;
++            result = 31 * result + buf->numFds;
++            result = 31 * result + buf->numInts;
++            int length = buf->numFds + buf->numInts;
++            for (int i = 0; i < length; i++) {
++                result = 31 * result + buf->data[i];
++            }
++            return result;
++        }
++    };
++
++    struct BufferComparator {
++        bool operator()(const buffer_handle_t& buf1, const buffer_handle_t& buf2) const {
++            if (buf1->numFds == buf2->numFds && buf1->numInts == buf2->numInts) {
++                int length = buf1->numFds + buf1->numInts;
++                for (int i = 0; i < length; i++) {
++                    if (buf1->data[i] != buf2->data[i]) {
++                        return false;
++                    }
++                }
++                return true;
++            }
++            return false;
++        }
++    };
++
++    std::mutex mBufferIdMapLock; // protecting mBufferIdMap and mNextBufferId
++    typedef std::unordered_map<const buffer_handle_t, uint64_t,
++            BufferHasher, BufferComparator> BufferIdMap;
++    // stream ID -> per stream buffer ID map
++    BufferIdMap mBufferIdMap;
++    std::unordered_map<uint64_t, ANativeWindowBuffer*> mReversedBufMap;
++    uint64_t mNextBufferId = 1;
++    static const uint64_t BUFFER_ID_NO_BUFFER = 0;
++
++    std::mutex mHidlMemPoolMapLock; // protecting mHidlMemPoolMap
++    std::unordered_map<int, camera_memory_t*> mHidlMemPoolMap;
++};
++
++};  // namespace android
++
++#endif
+-- 
+2.33.0
+

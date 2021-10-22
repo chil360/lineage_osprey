@@ -1,0 +1,43 @@
+From 8c6f556fc63e97e08a64a69c09cde68cc9a30496 Mon Sep 17 00:00:00 2001
+From: Kyle Harrison <khwebmail@gmail.com>
+Date: Wed, 20 Oct 2021 18:03:24 +0100
+Subject: [PATCH] MediaMuxer HAX
+
+Getting missing symbol "_ZN7android10MediaMuxerC1EiNS0_12OutputFormatE" in camera.vendor.msm8916.so
+
+As part of an A12 commit, the OutputFormat enum of MediaMuxer has been moved to a base class which
+changes the compiled symbol.
+
+I don't know how to implement this in a shim, so re-add a duplicate definition of the OutputFormat
+enum into MediaMuxer.
+
+Change-Id: I62eb8807d6c0eba96b0b2bf806e33f0bf69f50bd
+---
+ .../include/media/stagefright/MediaMuxer.h            | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/media/libstagefright/include/media/stagefright/MediaMuxer.h b/media/libstagefright/include/media/stagefright/MediaMuxer.h
+index e97a65ee6b..75a3ca0f54 100644
+--- a/media/libstagefright/include/media/stagefright/MediaMuxer.h
++++ b/media/libstagefright/include/media/stagefright/MediaMuxer.h
+@@ -48,6 +48,17 @@ struct NuMediaExtractor;
+ // deleting the output file after stop.
+ struct MediaMuxer : public MediaMuxerBase {
+ public:
++    // Please update media/java/android/media/MediaMuxer.java if the
++    // OutputFormat is updated.
++    enum OutputFormat {
++        OUTPUT_FORMAT_MPEG_4      = 0,
++        OUTPUT_FORMAT_WEBM        = 1,
++        OUTPUT_FORMAT_THREE_GPP   = 2,
++        OUTPUT_FORMAT_HEIF        = 3,
++        OUTPUT_FORMAT_OGG         = 4,
++        OUTPUT_FORMAT_LIST_END // must be last - used to validate format type
++    };
++    
+     // Construct the muxer with the file descriptor. Note that the MediaMuxer
+     // will close this file at stop().
+     MediaMuxer(int fd, OutputFormat format);
+-- 
+2.33.0
+

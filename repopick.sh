@@ -25,10 +25,10 @@ vendor/lineage/build/tools/repopick.py -f 286438 -P bootable/recovery
 
 # build
 vendor/lineage/build/tools/repopick.py -p 317301
-vendor/lineage/build/tools/repopick.py 317296
 
 # build/soong
 vendor/lineage/build/tools/repopick.py -p 317934
+vendor/lineage/build/tools/repopick.py 317296
 
 # device/lineage/sepolicy
 vendor/lineage/build/tools/repopick.py -p 317361
@@ -45,10 +45,11 @@ vendor/lineage/build/tools/repopick.py -f 317795 286147 287794
 # hardware/lineage/interfaces
 vendor/lineage/build/tools/repopick.py 317295 317362
 
-# lineage-sdk
-vendor/lineage/build/tools/repopick.py -t twelve-sdk-bringup -e 317384
-vendor/lineage/build/tools/repopick.py -t twelve-sdk-system_ext
-vendor/lineage/build/tools/repopick.py -t twelve-sdk-audio
+# twelve-sdk-bringup
+vendor/lineage/build/tools/repopick.py 317157 317391 317426 317935 317936
+vendor/lineage/build/tools/repopick.py 317159-317163 317387 317388 317384-317386 317420 317425
+vendor/lineage/build/tools/repopick.py 317164
+vendor/lineage/build/tools/repopick.py 317359 317360
 
 # packages/apps/Etar
 vendor/lineage/build/tools/repopick.py 317686 317685
@@ -57,22 +58,24 @@ vendor/lineage/build/tools/repopick.py 317686 317685
 vendor/lineage/build/tools/repopick.py -p 317606
 
 # packages/apps/Settings
-vendor/lineage/build/tools/repopick.py 317139
+vendor/lineage/build/tools/repopick.py 317139 317598 317599 317613 318021 318022 318023
 
 # packages/apps/SettingsIntelligence
 vendor/lineage/build/tools/repopick.py 317614 317615
+
+# packages/apps/Trebuchet
+vendor/lineage/build/tools/repopick.py 317590 317593 317964-317971
 
 # system/core
 vendor/lineage/build/tools/repopick.py 317617
 
 # vendor/lineage
-vendor/lineage/build/tools/repopick.py 317189
+vendor/lineage/build/tools/repopick.py 317189 317153
 
 
-vendor/lineage/build/tools/repopick.py 317935 317936
 vendor/lineage/build/tools/repopick.py 317608
 vendor/lineage/build/tools/repopick.py 317609
-vendor/lineage/build/tools/repopick.py 317568-317570 317804 317810 317948
+vendor/lineage/build/tools/repopick.py 317568-317570 317804 317810 317948 318019
 
 # Updater
 vendor/lineage/build/tools/repopick.py 317814 317815 317816 317955 318005
