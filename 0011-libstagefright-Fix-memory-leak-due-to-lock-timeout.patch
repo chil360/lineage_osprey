@@ -1,0 +1,39 @@
+From a72612b853a6ae57d184132abcf58d46838dccf4 Mon Sep 17 00:00:00 2001
+From: Priyanka Gujjula <pgujjula@codeaurora.org>
+Date: Mon, 25 Mar 2019 21:11:18 +0530
+Subject: [PATCH 11/12] libstagefright: Fix memory leak due to lock timeout
+
+Memory leak has occurred when freeBuffer tries to
+acquire the lock which is acquired by freeNode and
+not released. Due to lock timeout in freeBuffer,
+buffers are never released.
+
+CRs-Fixed: 2423296
+
+Change-Id: I468a562a2d1c76ffc0e666c120a5bbbedece48d7
+---
+ media/libstagefright/omx/OMXNodeInstance.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/media/libstagefright/omx/OMXNodeInstance.cpp b/media/libstagefright/omx/OMXNodeInstance.cpp
+index eac17cd0ab..9a932a48c2 100644
+--- a/media/libstagefright/omx/OMXNodeInstance.cpp
++++ b/media/libstagefright/omx/OMXNodeInstance.cpp
+@@ -580,11 +580,12 @@ status_t OMXNodeInstance::freeNode() {
+             break;
+     }
+ 
+-    Mutex::Autolock _l(mLock);
+-
+     if (mActiveBuffers.size() > 0) {
+         freeActiveBuffers();
+     }
++
++    Mutex::Autolock _l(mLock);
++
+     status_t err = mOwner->freeNode(this);
+ 
+     mDispatcher.clear();
+-- 
+2.33.1
+

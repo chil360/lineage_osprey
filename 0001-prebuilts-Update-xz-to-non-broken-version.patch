@@ -1,10 +1,12 @@
 From 90cbe625c8c8619113c751185fea9921f95eace8 Mon Sep 17 00:00:00 2001
-From: Kyle Harrison <khwebmail@gmail.com>
+From: "Kevin F. Haggerty" <haggertk@lineageos.org>
 Date: Fri, 8 Oct 2021 13:42:05 +0100
-Subject: [PATCH] prebuilts: Update xz to non-broken version * The aosp
- prebuilt does not work for kernel builds that use BCJ   compression options.
- It errors out with the below message:   - xz: Unsupported filter chain or
- filter options * Now that we are forced on R to use the prebuilt, let's use a
+Subject: [PATCH] prebuilts: Update xz to non-broken version
+
+ * The aosp prebuilt does not work for kernel builds that use BCJ
+   compression options. It errors out with the below message:
+   - xz: Unsupported filter chain or filter options
+ * Now that we are forced on R to use the prebuilt, let's use a
    functional one
 
 * Source version: xz-5.2.5

@@ -1,0 +1,101 @@
+From b385bf84bb44761892f6c290a764ed7f18f78244 Mon Sep 17 00:00:00 2001
+From: Rashed Abdel-Tawab <rashed@linux.com>
+Date: Wed, 27 Oct 2021 13:21:38 +0100
+Subject: [PATCH 3/3] camera: Only link and use
+ vendor.qti.hardware.camera.device if specified
+
+Set TARGET_USES_QTI_CAMERA_DEVICE to link and use
+
+This commit squashes:
+  camera: Convert lineage product variables to soong config variables
+  Change-Id: Id55eef9838964a420f0eb100e0e9eaee9611ce51
+
+Change-Id: I3a82412190b8918248bdd7a1d823777debd67173
+---
+ services/camera/libcameraservice/Android.bp               | 2 +-
+ .../libcameraservice/device1/CameraHardwareInterface.cpp  | 2 ++
+ .../libcameraservice/device1/CameraHardwareInterface.h    | 8 ++++++++
+ 3 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/services/camera/libcameraservice/Android.bp b/services/camera/libcameraservice/Android.bp
+index bed5731672..7d319ce990 100644
+--- a/services/camera/libcameraservice/Android.bp
++++ b/services/camera/libcameraservice/Android.bp
+@@ -37,6 +37,7 @@ license {
+ 
+ cc_library_shared {
+     name: "libcameraservice",
++    defaults: ["qti_camera_device_defaults"],
+ 
+     // Camera service source
+ 
+@@ -151,7 +152,6 @@ cc_library_shared {
+         "android.hardware.camera.provider@2.6",
+         "android.hardware.camera.provider@2.7",
+         "android.hardware.camera.device@1.0",
+-        "vendor.qti.hardware.camera.device@1.0",
+         "android.hardware.camera.device@3.2",
+         "android.hardware.camera.device@3.3",
+         "android.hardware.camera.device@3.4",
+diff --git a/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp b/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp
+index a122a4a9b5..fde72d7d86 100644
+--- a/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp
++++ b/services/camera/libcameraservice/device1/CameraHardwareInterface.cpp
+@@ -136,6 +136,7 @@ hardware::Return<void> CameraHardwareInterface::dataCallback(
+     return hardware::Void();
+ }
+ 
++#ifdef QTI_CAMERA_DEVICE
+ hardware::Return<void> CameraHardwareInterface::QDataCallback(
+         DataCallbackMsg msgType, uint32_t data, uint32_t bufferIndex,
+         const vendor::qti::hardware::camera::device::V1_0::QCameraFrameMetadata& metadata) {
+@@ -154,6 +155,7 @@ hardware::Return<void> CameraHardwareInterface::QDataCallback(
+     sDataCb((int32_t) msgType, mem, bufferIndex, &md, this);
+     return hardware::Void();
+ }
++#endif
+ 
+ hardware::Return<void> CameraHardwareInterface::dataCallbackTimestamp(
+         DataCallbackMsg msgType, uint32_t data,
+diff --git a/services/camera/libcameraservice/device1/CameraHardwareInterface.h b/services/camera/libcameraservice/device1/CameraHardwareInterface.h
+index 1d58e9ba16..4a20b6a597 100644
+--- a/services/camera/libcameraservice/device1/CameraHardwareInterface.h
++++ b/services/camera/libcameraservice/device1/CameraHardwareInterface.h
+@@ -29,7 +29,9 @@
+ #include <hardware/camera.h>
+ 
+ #include <common/CameraProviderManager.h>
++#ifdef QTI_CAMERA_DEVICE
+ #include <vendor/qti/hardware/camera/device/1.0/IQCameraDeviceCallback.h>
++#endif
+ 
+ namespace android {
+ 
+@@ -86,7 +88,11 @@ typedef void (*data_callback_timestamp_batch)(
+ 
+ class CameraHardwareInterface :
+         public virtual RefBase,
++#ifdef QTI_CAMERA_DEVICE
+         public virtual vendor::qti::hardware::camera::device::V1_0::IQCameraDeviceCallback,
++#else
++        public virtual hardware::camera::device::V1_0::ICameraDeviceCallback,
++#endif
+         public virtual hardware::camera::device::V1_0::ICameraDevicePreviewCallback {
+ 
+ public:
+@@ -396,10 +402,12 @@ private:
+             hardware::camera::device::V1_0::DataCallbackMsg msgType,
+             const hardware::hidl_vec<
+                     hardware::camera::device::V1_0::HandleTimestampMessage>&) override;
++#ifdef QTI_CAMERA_DEVICE
+     hardware::Return<void> QDataCallback(
+             hardware::camera::device::V1_0::DataCallbackMsg msgType,
+             uint32_t data, uint32_t bufferIndex,
+             const vendor::qti::hardware::camera::device::V1_0::QCameraFrameMetadata& metadata) override;
++#endif
+ 
+     /**
+      * Implementation of android::hardware::camera::device::V1_0::ICameraDevicePreviewCallback
+-- 
+2.33.1
+

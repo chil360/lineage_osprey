@@ -1,0 +1,165 @@
+From 55e7aaa657f9710ece4f28bea99604d4b3cd13d3 Mon Sep 17 00:00:00 2001
+From: Rashed Abdel-Tawab <rashed@linux.com>
+Date: Wed, 27 Oct 2021 13:13:14 +0100
+Subject: [PATCH 2/2] camera: Only link and use
+ vendor.qti.hardware.camera.device if specified
+
+Only use if TARGET_USES_QTI_CAMERA_DEVICE is set
+
+This commit squashes:
+  camera: Convert lineage product variables to soong config variables
+  Change-Id: Ib58a204a55985c8d4cb963ccd6009d7b8ff3c0b5
+
+Change-Id: I74b178c2f685a2ffda3e91eb7ff6d05664eebaf6
+---
+ camera/device/1.0/default/Android.bp         | 6 ++++--
+ camera/device/1.0/default/CameraDevice.cpp   | 6 ++++++
+ camera/device/1.0/default/CameraDevice_1_0.h | 6 ++++++
+ camera/provider/2.4/default/Android.bp       | 8 +++++---
+ 4 files changed, 21 insertions(+), 5 deletions(-)
+
+diff --git a/camera/device/1.0/default/Android.bp b/camera/device/1.0/default/Android.bp
+index d9fcab16f..6db887d4b 100644
+--- a/camera/device/1.0/default/Android.bp
++++ b/camera/device/1.0/default/Android.bp
+@@ -9,7 +9,10 @@ package {
+ 
+ cc_library_shared {
+     name: "camera.device@1.0-impl",
+-    defaults: ["hidl_defaults"],
++    defaults: [
++        "hidl_defaults",
++        "qti_camera_device_defaults",
++    ],
+     proprietary: true,
+     srcs: [
+         "CameraDevice.cpp",
+@@ -19,7 +22,6 @@ cc_library_shared {
+         "libhidlmemory",
+         "libutils",
+         "android.hardware.camera.device@1.0",
+-        "vendor.qti.hardware.camera.device@1.0",
+         "android.hardware.camera.common@1.0",
+         "android.hardware.graphics.allocator@2.0",
+         "android.hardware.graphics.mapper@2.0",
+diff --git a/camera/device/1.0/default/CameraDevice.cpp b/camera/device/1.0/default/CameraDevice.cpp
+index 622660685..f033cecd5 100644
+--- a/camera/device/1.0/default/CameraDevice.cpp
++++ b/camera/device/1.0/default/CameraDevice.cpp
+@@ -433,6 +433,7 @@ void CameraDevice::sDataCb(int32_t msg_type, const camera_memory_t *data, unsign
+              index, mem->mNumBufs);
+         return;
+     }
++#ifdef QTI_CAMERA_DEVICE
+     if(object->mQDeviceCallback != nullptr) {
+          vendor::qti::hardware::camera::device::V1_0::QCameraFrameMetadata hidlMetadata;
+          if (metadata) {
+@@ -470,6 +471,7 @@ void CameraDevice::sDataCb(int32_t msg_type, const camera_memory_t *data, unsign
+          object->mQDeviceCallback->QDataCallback(
+                  (DataCallbackMsg) msg_type, mem->handle.mId, index, hidlMetadata);
+     } else {
++#endif
+        if (object->mDeviceCallback != nullptr) {
+            CameraFrameMetadata hidlMetadata;
+            if (metadata) {
+@@ -494,7 +496,9 @@ void CameraDevice::sDataCb(int32_t msg_type, const camera_memory_t *data, unsign
+            CameraHeapMemory* mem = static_cast<CameraHeapMemory *>(data->handle);
+            object->mDeviceCallback->dataCallback(
+                    (DataCallbackMsg) msg_type, mem->handle.mId, index, hidlMetadata);
++#ifdef QTI_CAMERA_DEVICE
+        }
++#endif
+     }
+ }
+ 
+@@ -710,11 +714,13 @@ Return<Status> CameraDevice::open(const sp<ICameraDeviceCallback>& callback) {
+ 
+     initHalPreviewWindow();
+     mDeviceCallback = callback;
++#ifdef QTI_CAMERA_DEVICE
+     mQDeviceCallback =
+         vendor::qti::hardware::camera::device::V1_0::IQCameraDeviceCallback::castFrom(callback);
+     if(mQDeviceCallback == nullptr) {
+         ALOGI("could not cast ICameraDeviceCallback to IQCameraDeviceCallback");
+     }
++#endif
+ 
+     if (mDevice->ops->set_callbacks) {
+         mDevice->ops->set_callbacks(mDevice,
+diff --git a/camera/device/1.0/default/CameraDevice_1_0.h b/camera/device/1.0/default/CameraDevice_1_0.h
+index e5a194edc..2b35a730d 100644
+--- a/camera/device/1.0/default/CameraDevice_1_0.h
++++ b/camera/device/1.0/default/CameraDevice_1_0.h
+@@ -24,7 +24,9 @@
+ #include "HandleImporter.h"
+ 
+ #include <android/hardware/camera/device/1.0/ICameraDevice.h>
++#ifdef QTI_CAMERA_DEVICE
+ #include <vendor/qti/hardware/camera/device/1.0/IQCameraDeviceCallback.h>
++#endif
+ #include <android/hidl/allocator/1.0/IAllocator.h>
+ #include <android/hidl/memory/1.0/IMemory.h>
+ #include <hidl/MQDescriptor.h>
+@@ -45,7 +47,9 @@ using ::android::hardware::camera::common::V1_0::helper::HandleImporter;
+ using ::android::hardware::camera::device::V1_0::CameraInfo;
+ using ::android::hardware::camera::device::V1_0::CommandType;
+ using ::android::hardware::camera::device::V1_0::ICameraDevice;
++#ifdef QTI_CAMERA_DEVICE
+ using ::vendor::qti::hardware::camera::device::V1_0::IQCameraDeviceCallback;
++#endif
+ using ::android::hardware::camera::device::V1_0::ICameraDeviceCallback;
+ using ::android::hardware::camera::device::V1_0::ICameraDevicePreviewCallback;
+ using ::android::hardware::camera::device::V1_0::MemoryId;
+@@ -166,7 +170,9 @@ private:
+     const SortedVector<std::pair<std::string, std::string>>& mCameraDeviceNames;
+ 
+     sp<ICameraDeviceCallback> mDeviceCallback = nullptr;
++#ifdef QTI_CAMERA_DEVICE
+     sp<IQCameraDeviceCallback> mQDeviceCallback = nullptr;
++#endif
+ 
+     mutable Mutex mMemoryMapLock; // gating access to mMemoryMap
+                                   // must not hold mLock after this lock is acquired
+diff --git a/camera/provider/2.4/default/Android.bp b/camera/provider/2.4/default/Android.bp
+index dc0d26f98..6a16a8f71 100644
+--- a/camera/provider/2.4/default/Android.bp
++++ b/camera/provider/2.4/default/Android.bp
+@@ -15,7 +15,6 @@ cc_library_shared {
+     shared_libs: [
+         "android.hardware.camera.common@1.0",
+         "android.hardware.camera.device@1.0",
+-        "vendor.qti.hardware.camera.device@1.0",
+         "android.hardware.camera.device@3.2",
+         "android.hardware.camera.device@3.3",
+         "android.hardware.camera.device@3.4",
+@@ -50,6 +49,7 @@ cc_library_shared {
+ 
+ cc_library_shared {
+     name: "android.hardware.camera.provider@2.4-external",
++    defaults: ["qti_camera_device_defaults"],
+     proprietary: true,
+     srcs: ["ExternalCameraProviderImpl_2_4.cpp"],
+     shared_libs: [
+@@ -100,7 +100,6 @@ cc_library_shared {
+     shared_libs: [
+         "android.hardware.camera.common@1.0",
+         "android.hardware.camera.device@1.0",
+-        "vendor.qti.hardware.camera.device@1.0",
+         "android.hardware.camera.device@3.2",
+         "android.hardware.camera.device@3.3",
+         "android.hardware.camera.device@3.4",
+@@ -212,7 +211,10 @@ cc_binary {
+ 
+ cc_binary {
+     name: "android.hardware.camera.provider@2.4-external-service",
+-    defaults: ["hidl_defaults"],
++    defaults: [
++        "hidl_defaults",
++        "qti_camera_device_defaults",
++    ],
+     proprietary: true,
+     relative_install_path: "hw",
+     srcs: ["external-service.cpp"],
+-- 
+2.33.1
+

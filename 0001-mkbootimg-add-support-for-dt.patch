@@ -1,5 +1,5 @@
 From bbe691fa1440eb0ac1f518e6ec072c92c8be0de1 Mon Sep 17 00:00:00 2001
-From: Kyle Harrison <khwebmail@gmail.com>
+From: M1cha <sigmaepsilon92@gmail.com>
 Date: Fri, 8 Oct 2021 10:20:58 +0100
 Subject: [PATCH] mkbootimg: add support for --dt
 

@@ -11,12 +11,12 @@ What's working ?
  - RIL
  - Mobile data
  - Wifi
-
-Not Working / Not Tested ?
  - Bluetooth
  - GPS
  - Camera
  - Camcorder
+
+Not Working / Not Tested ?
  - VoLTE
  - SELinux Enforcing
 
@@ -35,7 +35,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b refs/changes/23/317623/7
+    repo init -u git://github.com/LineageOS/android.git -b refs/changes/23/317623/10
 
 Now create a local_manifests directory
 

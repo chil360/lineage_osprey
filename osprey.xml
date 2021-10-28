@@ -22,8 +22,6 @@
     <project path="external/ant-wireless/hidl" name="LineageOS/android_external_ant-wireless_hidl" revision="lineage-18.1" />
   	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-18.1" />
 
-	<project path="hardware/lineage/livedisplay" name="LineageOS/android_hardware_lineage_livedisplay" />
-
 	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-18.1-caf-msm8916" />
     <project path="hardware/qcom-caf/msm8916/display" name="LineageOS/android_hardware_qcom_display" remote="github" revision="lineage-18.1-caf-msm8916" />
     <project path="hardware/qcom-caf/msm8916/media" name="LineageOS/android_hardware_qcom_media" remote="github" revision="lineage-18.1-caf-msm8916" />
