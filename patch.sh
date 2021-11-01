@@ -6,7 +6,7 @@
 
 TOP=${PWD}
 source $TOP/build/envsetup.sh > /dev/null 2>&1
-PATCH_DIR=$( dirname "${BASH_SOURCE[0]}" )
+PATCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 NOCOLOR='\033[0m'
 GREEN='\033[0;32m'
