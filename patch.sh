@@ -31,27 +31,24 @@ function apply_patch {
 # Example: apply_patch [REPO_DIR] [PATCH_FILE]                  #
 #################################################################
 
-# Build Fixes
-apply_patch system/tools/mkbootimg 0001-mkbootimg-add-support-for-dt.patch
-apply_patch prebuilts/build-tools 0001-prebuilts-Update-xz-to-non-broken-version.patch
-apply_patch hardware/qcom-caf/wlan 0001-wifi-build-fix-for-S.patch
-
 # Misc
 apply_patch vendor/lineage 0001-TEMP-Disable-ADB-authentication.patch
 
-# Workaround BFP
-apply_patch system/bpf 0001-bpfloader-No-BPF.patch
-apply_patch system/netd 0001-netd-No-BPF.patch
+# Workaround BPF
+apply_patch system/bpf 0001-Ignore-bpf-errors-for-4.9-kernels.patch
+apply_patch system/netd 0001-Ignore-netd-errors-for-4.9-kernels.patch
 
 # Display 8916
 apply_patch hardware/qcom-caf/msm8916/display 0001-HWC-HAXX.patch
 
-# frameworks/base SDCard fixes
-apply_patch frameworks/base 0001-storage-Set-all-sdcards-to-visible.patch
-apply_patch frameworks/base 0001-Correction-in-logic-of-roundend-size-calculation-of-.patch
+# Themed icons
+apply_patch packages/apps/Trebuchet 0001-launcher-Add-support-for-themed-icons.patch
+apply_patch packages/apps/Trebuchet 0002-Launcher3-Import-more-themed-icons.patch
+
+# Camera blobs
+apply_patch frameworks/av 0001-MediaMuxer-HAX.patch
 
 # HAL1 Hackery
-apply_patch frameworks/av 0001-MediaMuxer-HAX.patch
 apply_patch frameworks/av 0001-Camera-Restore-camera-HALv1-support-1-2.patch
 apply_patch frameworks/base 0001-Camera-Restore-camera-HALv1-support-2-2.patch
 
@@ -64,12 +61,9 @@ apply_patch frameworks/av 0002-Camera-Miscellaneous-fixes-in-QDataCallback-and-b
 apply_patch frameworks/av 0003-camera-Only-link-and-use-vendor.qti.hardware.camera..patch
 apply_patch hardware/interfaces 0001-Camed-HAL-extension-Added-support-in-HIDL-for-Extend.patch
 apply_patch hardware/interfaces 0002-camera-Only-link-and-use-vendor.qti.hardware.camera..patch
-apply_patch system/core 0001-Camera-Add-feature-extensions.patch
 
 # eleven-camera-extension
 apply_patch frameworks/av 0001-Camera-Add-extensions-to-CameraClient.patch
-apply_patch frameworks/av 0002-Camera-Add-support-for-preview-frame-fd.patch
-apply_patch frameworks/base 0002-Camera-Add-feature-extensions.patch
 
 # eleven-legacy-camera
 apply_patch frameworks/av 0001-nuplayer-Avoid-crash-when-codec-fails-to-load.patch

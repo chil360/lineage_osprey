@@ -14,48 +14,47 @@ source $TOP/build/envsetup.sh > /dev/null 2>&1
 # repopick [CHANGE_NUMBER]                                      #
 #################################################################
 
+repopick -t android-12.0.0_r16
+
 # Ultra Legacy
-vendor/lineage/build/tools/repopick.py 318097
-vendor/lineage/build/tools/repopick.py -f 287706 -P external/perfetto
-vendor/lineage/build/tools/repopick.py 318458
-vendor/lineage/build/tools/repopick.py 318364
-
-# bionic
-vendor/lineage/build/tools/repopick.py 317618
-
-# bootable/recovery
-vendor/lineage/build/tools/repopick.py 317820 317870
+repopick 318097
+repopick -f 287706 -P external/perfetto
+repopick 318458
 
 # build
-vendor/lineage/build/tools/repopick.py 317090-317111 317114-317123 317125-317126 317298 317300 317301
+repopick 317298 317300
 
-# hardware/libhardware
-vendor/lineage/build/tools/repopick.py -f 318632 287794
+# hardware/qcom/wlan
+repopick 318781
 
 # packages/apps/Etar
-vendor/lineage/build/tools/repopick.py 317686 317685
-
-# packages/apps/LineageParts
-vendor/lineage/build/tools/repopick.py 317606
+repopick 319630-319634
 
 # packages/apps/Settings
-vendor/lineage/build/tools/repopick.py 318021 318022 318023
-vendor/lineage/build/tools/repopick.py -f 286831
+repopick 318021 318022 318023 319084
 
 # packages/apps/Trebuchet
-vendor/lineage/build/tools/repopick.py 317966-317971 318383-318388
+repopick 317966-317971 318383-318386 318388
 
 # frameworks/base
-vendor/lineage/build/tools/repopick.py 317608 317609 318458
+repopick 318459 318605
 
 # packages/apps/SetupWizard
-vendor/lineage/build/tools/repopick.py 317569-317570 317810 317948 318019
+repopick 317569-317570 317810 317948 318019
 
-# Updater
-vendor/lineage/build/tools/repopick.py 317955
+# system/tools/mkbootimg
+repopick -P system/tools/mkbootimg 319780
 
+# Camera
+repopick -t twelve-camera-extension
+
+# vendor/codeaurora/telephony
+repopick 320322
 
 # Extras
-repopick -t twelve-monet
-repopick -g https://review.arrowos.net/ -P frameworks/native 15028
+repopick 317928 317929 317932 318826 318828
+#repopick -t twelve-clock-customizations
+#repopick -t twelve-network-traffic
+#repopick -t twelve-monet
+repopick -g https://review.arrowos.net/ -P frameworks/native -f 15028
 repopick -g https://review.arrowos.net/ -P frameworks/av -f -t twelve-legacy-wfd

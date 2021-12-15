@@ -35,7 +35,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b refs/changes/23/317623/13
+    repo init -u git://github.com/LineageOS/android.git -b refs/changes/23/317623/28
 
 Now create a local_manifests directory
 
