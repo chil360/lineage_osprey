@@ -15,11 +15,7 @@
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
 
 	<!-- Bringup repos -->
-    <project path="external/ant-wireless/ant_client" name="LineageOS/android_external_ant-wireless_ant_client" revision="lineage-19.0" />
-    <project path="external/ant-wireless/ant_native" name="LineageOS/android_external_ant-wireless_ant_native" revision="lineage-19.0" />
-    <project path="external/ant-wireless/ant_service" name="LineageOS/android_external_ant-wireless_ant_service" revision="lineage-19.0" />
     <project path="external/ant-wireless/antradio-library" name="LineageOS/android_external_ant-wireless_antradio-library" revision="lineage-19.0" />
-    <project path="external/ant-wireless/hidl" name="LineageOS/android_external_ant-wireless_hidl" revision="lineage-19.0" />
   	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-18.1" />
 
 	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-18.1-caf-msm8916" />
@@ -28,11 +24,12 @@
 
     <project path="device/qcom/sepolicy-legacy" name="LineageOS/android_device_qcom_sepolicy" groups="qcom,pdk-qcom" revision="lineage-18.1-legacy" />
 
- 	<project path="hardware/qcom-caf/wlan" name="LineageOS/android_hardware_qcom_wlan" groups="qcom_wlan,pdk-qcom" revision="lineage-19.0-caf" />
-
 	<project path="system/tools/dtbtool" name="LineageOS/android_system_tools_dtbtool" remote="github" revision="lineage-18.1" />
 
 	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" remote="github" revision="lineage-18.1" />
+	
+	<remove-project name="platform/packages/apps/Calendar" />
+	<project path="packages/apps/Etar" name="LineageOS/android_packages_apps_Etar" />
 
 	<project path="packages/apps/FMRadio" name="LineageOS/android_packages_apps_FMRadio" remote="github" revision="lineage-18.1" />
 	<project path="vendor/qcom/opensource/libfmjni" name="LineageOS/android_vendor_qcom_opensource_libfmjni" remote="github" revision="lineage-18.1" />

@@ -14,10 +14,8 @@ source $TOP/build/envsetup.sh > /dev/null 2>&1
 # repopick [CHANGE_NUMBER]                                      #
 #################################################################
 
-repopick -t android-12.0.0_r16
-
 # Ultra Legacy
-repopick 318097
+repopick -P art 318097
 repopick -f 287706 -P external/perfetto
 repopick 318458
 
@@ -40,16 +38,13 @@ repopick 317966-317971 318383-318386 318388
 repopick 318459 318605
 
 # packages/apps/SetupWizard
-repopick 317569-317570 317810 317948 318019
+#repopick 317569-317570 317810 317948 318019
 
 # system/tools/mkbootimg
 repopick -P system/tools/mkbootimg 319780
 
 # Camera
 repopick -t twelve-camera-extension
-
-# vendor/codeaurora/telephony
-repopick 320322
 
 # Extras
 repopick 317928 317929 317932 318826 318828
