@@ -35,11 +35,8 @@ function apply_patch {
 apply_patch vendor/lineage 0001-TEMP-Disable-ADB-authentication.patch
 
 # Display 8916
-apply_patch hardware/qcom-caf/msm8916/display 0001-HWC-HAXX.patch
+apply_patch hardware/qcom-caf/msm8916/display 0001-hwc-Update-dependencies-for-S.patch
 
 # Themed icons
 apply_patch packages/apps/Trebuchet 0001-launcher-Add-support-for-themed-icons.patch
 apply_patch packages/apps/Trebuchet 0002-Launcher3-Import-more-themed-icons.patch
-
-# Camera blobs
-apply_patch frameworks/av 0001-MediaMuxer-HAX.patch
