@@ -1,0 +1,51 @@
+From a43665b227096288db06204b97be2864ac6e8ff9 Mon Sep 17 00:00:00 2001
+From: Bruno Martins <bgcngm@gmail.com>
+Date: Thu, 11 Jun 2020 10:48:56 +0100
+Subject: [PATCH 2/5] Avoid SubscriptionManager#getUriForSubscriptionId calls
+ with invalid subIds
+
+It seems like the SIM card can take longer to load on certain legacy CDMA devices,
+thus causing the subscription ID not to be valid during early telephony init.
+
+Just skip calling SubscriptionController#setMccMnc or setCountryIso at that point,
+so to avoid any subsequent calls to SubscriptionManager#getUriForSubscriptionId with
+an invalid subId, which then makes the phone process crash. Once the SIM is loaded,
+SubscriptionInfoUpdater will take care of updating the DB with the proper URI.
+
+Change-Id: I8bd71127aecff9577bb0d3b9d7cab7a01a076e87
+---
+ .../com/android/internal/telephony/GsmCdmaPhone.java  | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/GsmCdmaPhone.java b/src/java/com/android/internal/telephony/GsmCdmaPhone.java
+index aebd91659..fbf76e271 100644
+--- a/src/java/com/android/internal/telephony/GsmCdmaPhone.java
++++ b/src/java/com/android/internal/telephony/GsmCdmaPhone.java
+@@ -489,8 +489,6 @@ public class GsmCdmaPhone extends Phone {
+                 logd("update icc_operator_numeric=" + operatorNumeric);
+                 tm.setSimOperatorNumericForPhone(mPhoneId, operatorNumeric);
+ 
+-                SubscriptionController.getInstance().setMccMnc(operatorNumeric, getSubId());
+-
+                 // Sets iso country property by retrieving from build-time system property
+                 String iso = "";
+                 try {
+@@ -501,7 +499,14 @@ public class GsmCdmaPhone extends Phone {
+ 
+                 logd("init: set 'gsm.sim.operator.iso-country' to iso=" + iso);
+                 tm.setSimCountryIsoForPhone(mPhoneId, iso);
+-                SubscriptionController.getInstance().setCountryIso(iso, getSubId());
++
++                // Skip if the subscription ID is not valid, because it can happen
++                // that the SIM is not loaded yet at this point.
++                final int subId = getSubId();
++                if (subId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
++                    SubscriptionController.getInstance().setMccMnc(operatorNumeric, subId);
++                    SubscriptionController.getInstance().setCountryIso(iso, subId);
++                }
+ 
+                 // Updates MCC MNC device configuration information
+                 logd("update mccmnc=" + operatorNumeric);
+-- 
+2.35.1
+

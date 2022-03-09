@@ -1,0 +1,37 @@
+From 374ad6dfeb00bfdccecb33bb53a3aa427867802c Mon Sep 17 00:00:00 2001
+From: Adithya R <gh0strider.2k18.reborn@gmail.com>
+Date: Thu, 9 Sep 2021 20:04:54 +0530
+Subject: [PATCH] hwui: Silence Davey logs for now
+
+ * spams logcat too much
+
+Change-Id: I09760cf5f63a409781d33eb3c11b1c89e9e39f2a
+---
+ libs/hwui/JankTracker.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/libs/hwui/JankTracker.cpp b/libs/hwui/JankTracker.cpp
+index 34e5577066f9..cffbbb4a0f54 100644
+--- a/libs/hwui/JankTracker.cpp
++++ b/libs/hwui/JankTracker.cpp
+@@ -233,7 +233,7 @@ void JankTracker::finishFrame(FrameInfo& frame, std::unique_ptr<FrameMetricsRepo
+         }
+ 
+         // Log daveys since they are weird and we don't know what they are (b/70339576)
+-        if (totalDuration >= 700_ms) {
++        /* if (totalDuration >= 700_ms) {
+             static int sDaveyCount = 0;
+             std::stringstream ss;
+             ss << "Davey! duration=" << ns2ms(totalDuration) << "ms; ";
+@@ -243,7 +243,7 @@ void JankTracker::finishFrame(FrameInfo& frame, std::unique_ptr<FrameMetricsRepo
+             ALOGI("%s", ss.str().c_str());
+             // Just so we have something that counts up, the value is largely irrelevant
+             ATRACE_INT(ss.str().c_str(), ++sDaveyCount);
+-        }
++        } */
+     }
+ 
+     int64_t totalGPUDrawTime = frame.gpuDrawTime();
+-- 
+2.34.1
+

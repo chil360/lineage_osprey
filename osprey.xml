@@ -8,6 +8,7 @@
 	<project name="proprietary_vendor_motorola" path="vendor/motorola" remote="chil360" revision="12.0" />
 
 	<!-- Additional repos -->
+  	<project path="hardware/motorola" name="LineageOS/android_hardware_motorola" remote="github" revision="lineage-19.0" />
 	<project name="LineageOS/android_external_sony_boringssl-compat" path="external/sony/boringssl-compat" remote="github" revision="lineage-18.1" />
 	<project name="LineageOS/android_system_qcom" path="system/qcom" groups="qcom" remote="github" revision="lineage-18.1" />
 
@@ -15,7 +16,6 @@
 	<project name="prebuilts_gcc_linux-x86_arm_arm-eabi-8.3" path="prebuilts/gcc/linux-x86/arm/arm-eabi-8.3" remote="chil360" revision="master" />
 
 	<!-- Bringup repos -->
-    <project path="external/ant-wireless/antradio-library" name="LineageOS/android_external_ant-wireless_antradio-library" revision="lineage-19.0" />
   	<project path="external/connectivity" name="LineageOS/android_external_connectivity" remote="github" revision="lineage-18.1" />
 
 	<project path="hardware/qcom-caf/msm8916/audio" name="LineageOS/android_hardware_qcom_audio" remote="github" revision="lineage-18.1-caf-msm8916" />
@@ -26,8 +26,6 @@
 
 	<project path="system/tools/dtbtool" name="LineageOS/android_system_tools_dtbtool" remote="github" revision="lineage-18.1" />
 
-	<project path="vendor/qcom/opensource/dataservices" name="LineageOS/android_vendor_qcom_opensource_dataservices" remote="github" revision="lineage-18.1" />
-	
 	<remove-project name="platform/packages/apps/Calendar" />
 	<project path="packages/apps/Etar" name="LineageOS/android_packages_apps_Etar" />
 

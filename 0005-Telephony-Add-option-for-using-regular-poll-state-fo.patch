@@ -1,0 +1,58 @@
+From 10f6aab427f7c968e9b51916dbeb38089972543a Mon Sep 17 00:00:00 2001
+From: Arne Coucheron <arco68@gmail.com>
+Date: Mon, 19 Sep 2016 06:53:52 +0200
+Subject: [PATCH 5/5] Telephony: Add option for using regular poll state for
+ airplane mode
+
+The modemTriggeredPollState breaks airplane mode on some devices.
+Although the UI shows that airplane mode is activated, the fact is that
+the radio remains active and in service. By using regular pollState()
+here, service state in sim status shows correctly radio off.
+
+Enable with setting prop:
+ro.telephony.ril.config=legacypollstate
+
+Test: Insert SIM card. Put device into airplane mode. Go into
+SIM Status and verify that it says "Radio off".
+
+Change-Id: If2ab5b088a13b1a159e01f82fbea1f58a77b64cd
+---
+ .../internal/telephony/ServiceStateTracker.java | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/src/java/com/android/internal/telephony/ServiceStateTracker.java b/src/java/com/android/internal/telephony/ServiceStateTracker.java
+index bdc364d9e..f01ab4cf3 100755
+--- a/src/java/com/android/internal/telephony/ServiceStateTracker.java
++++ b/src/java/com/android/internal/telephony/ServiceStateTracker.java
+@@ -1364,8 +1364,14 @@ public class ServiceStateTracker extends Handler {
+                 }
+                 // This will do nothing in the 'radio not available' case
+                 setPowerStateToDesired();
+-                // These events are modem triggered, so pollState() needs to be forced
+-                pollStateInternal(true);
++                if (needsLegacyPollState()) {
++                    // Some older radio blobs need this to put device
++                    // properly into airplane mode.
++                    pollState();
++                } else {
++                    // These events are modem triggered, so pollState() needs to be forced
++                    pollStateInternal(true);
++                }
+                 break;
+ 
+             case EVENT_NETWORK_STATE_CHANGED:
+@@ -6433,4 +6439,11 @@ public class ServiceStateTracker extends Handler {
+     public void unregisterForAreaCodeChanged(Handler h) {
+         mAreaCodeChangedRegistrants.remove(h);
+     }
++
++    private boolean needsLegacyPollState() {
++        if (mCi instanceof RIL) {
++            return ((RIL) mCi).needsOldRilFeature("legacypollstate");
++        }
++        return false;
++    }
+ }
+-- 
+2.35.1
+
