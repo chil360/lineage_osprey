@@ -15,9 +15,9 @@ What's working ?
  - GPS
  - Camera
  - Camcorder
-
-Not Working / Not Tested ?
  - VoLTE
+ 
+Not Working / Not Tested ?
  - SELinux Enforcing
 
 Download
@@ -35,7 +35,7 @@ Create a build directory
 
 Initialize your local repository using the LineageOS trees, use a command like this:
 
-    repo init -u git://github.com/LineageOS/android.git -b lineage-19.0
+    repo init -u git://github.com/LineageOS/android.git -b lineage-19.1
 
 Now create a local_manifests directory
 

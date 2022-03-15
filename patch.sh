@@ -34,9 +34,6 @@ function apply_patch {
 # Misc
 apply_patch vendor/lineage 0001-TEMP-Disable-ADB-authentication.patch
 
-# Display 8916
-apply_patch hardware/qcom-caf/msm8916/display 0001-hwc-Update-dependencies-for-S.patch
-
 # Themed icons
 apply_patch packages/apps/Trebuchet 0001-launcher-Add-support-for-themed-icons.patch
 apply_patch packages/apps/Trebuchet 0002-Launcher3-Import-more-themed-icons.patch
@@ -50,3 +47,9 @@ apply_patch frameworks/opt/telephony 0002-Avoid-SubscriptionManager-getUriForSub
 apply_patch frameworks/opt/telephony 0003-RIL-Fix-manual-network-selection-with-old-modem.patch
 apply_patch frameworks/opt/telephony 0004-2G-wants-proper-signal-strength-too.patch
 apply_patch frameworks/opt/telephony 0005-Telephony-Add-option-for-using-regular-poll-state-fo.patch
+
+
+# System sepolicy
+apply_patch system/sepolicy 0001-Fix-storaged-access-to-sys-block-mmcblk0-stat-after-.patch
+apply_patch system/sepolicy 0002-sepolicy-Treat-proc-based-DT-fstab-the-same-and-sys-.patch
+apply_patch system/sepolicy 0003-Allow-init-to-write-to-proc-cpu-alignment.patch

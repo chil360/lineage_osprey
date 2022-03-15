@@ -1,0 +1,330 @@
+From 4b67de80e2b49b5f3c8ec835e85727b05959b8df Mon Sep 17 00:00:00 2001
+From: "Kevin F. Haggerty" <haggertk@lineageos.org>
+Date: Thu, 12 Nov 2020 18:04:14 +0000
+Subject: [PATCH 3/3] Allow init to write to /proc/cpu/alignment
+
+* AOSP init.rc attempts to write to /proc/cpu/alignment, but
+  following 84e181bc, general access to procfs nodes is prohibited.
+* Add an appropriate type, genfscon, and allow to permit this
+  action.
+
+Change-Id: I31ad8eaa6ebb6dd57d1b9c4395cb22cdd0d7b3d3
+(cherry picked from commit 6213f5041a6e9242b2a23c8cc85d0d76cbc1fc45)
+---
+ prebuilts/api/31.0/private/compat/26.0/26.0.ignore.cil | 1 +
+ prebuilts/api/31.0/private/compat/27.0/27.0.ignore.cil | 1 +
+ prebuilts/api/31.0/private/compat/28.0/28.0.ignore.cil | 1 +
+ prebuilts/api/31.0/private/compat/29.0/29.0.ignore.cil | 1 +
+ prebuilts/api/31.0/private/compat/30.0/30.0.ignore.cil | 1 +
+ prebuilts/api/31.0/private/genfs_contexts              | 1 +
+ prebuilts/api/31.0/public/file.te                      | 1 +
+ prebuilts/api/31.0/public/init.te                      | 1 +
+ prebuilts/api/32.0/private/compat/26.0/26.0.ignore.cil | 1 +
+ prebuilts/api/32.0/private/compat/27.0/27.0.ignore.cil | 1 +
+ prebuilts/api/32.0/private/compat/28.0/28.0.ignore.cil | 1 +
+ prebuilts/api/32.0/private/compat/29.0/29.0.ignore.cil | 1 +
+ prebuilts/api/32.0/private/compat/30.0/30.0.ignore.cil | 1 +
+ prebuilts/api/32.0/private/genfs_contexts              | 1 +
+ prebuilts/api/32.0/public/file.te                      | 1 +
+ prebuilts/api/32.0/public/init.te                      | 1 +
+ private/compat/26.0/26.0.ignore.cil                    | 1 +
+ private/compat/27.0/27.0.ignore.cil                    | 1 +
+ private/compat/28.0/28.0.ignore.cil                    | 1 +
+ private/compat/29.0/29.0.ignore.cil                    | 1 +
+ private/compat/30.0/30.0.ignore.cil                    | 1 +
+ private/genfs_contexts                                 | 1 +
+ public/file.te                                         | 1 +
+ public/init.te                                         | 1 +
+ 24 files changed, 24 insertions(+)
+
+diff --git a/prebuilts/api/31.0/private/compat/26.0/26.0.ignore.cil b/prebuilts/api/31.0/private/compat/26.0/26.0.ignore.cil
+index 13ba65c6a..df6566195 100644
+--- a/prebuilts/api/31.0/private/compat/26.0/26.0.ignore.cil
++++ b/prebuilts/api/31.0/private/compat/26.0/26.0.ignore.cil
+@@ -136,6 +136,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     property_info
+     recovery_socket
+diff --git a/prebuilts/api/31.0/private/compat/27.0/27.0.ignore.cil b/prebuilts/api/31.0/private/compat/27.0/27.0.ignore.cil
+index 9154be73a..ef0544084 100644
+--- a/prebuilts/api/31.0/private/compat/27.0/27.0.ignore.cil
++++ b/prebuilts/api/31.0/private/compat/27.0/27.0.ignore.cil
+@@ -151,6 +151,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     property_info
+     property_service_version_prop
+diff --git a/prebuilts/api/31.0/private/compat/28.0/28.0.ignore.cil b/prebuilts/api/31.0/private/compat/28.0/28.0.ignore.cil
+index 64c79da80..124e52466 100644
+--- a/prebuilts/api/31.0/private/compat/28.0/28.0.ignore.cil
++++ b/prebuilts/api/31.0/private/compat/28.0/28.0.ignore.cil
+@@ -109,6 +109,7 @@
+     password_slot_metadata_file
+     permissionmgr_service
+     postinstall_apex_mnt_dir
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     recovery_socket
+     role_service
+diff --git a/prebuilts/api/31.0/private/compat/29.0/29.0.ignore.cil b/prebuilts/api/31.0/private/compat/29.0/29.0.ignore.cil
+index 803fa9d90..ca2da5e62 100644
+--- a/prebuilts/api/31.0/private/compat/29.0/29.0.ignore.cil
++++ b/prebuilts/api/31.0/private/compat/29.0/29.0.ignore.cil
+@@ -88,6 +88,7 @@
+     ota_metadata_file
+     ota_prop
+     prereboot_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     art_apex_dir
+     rebootescrow_hal_prop
+diff --git a/prebuilts/api/31.0/private/compat/30.0/30.0.ignore.cil b/prebuilts/api/31.0/private/compat/30.0/30.0.ignore.cil
+index 1f17024e8..0e1091ed8 100644
+--- a/prebuilts/api/31.0/private/compat/30.0/30.0.ignore.cil
++++ b/prebuilts/api/31.0/private/compat/30.0/30.0.ignore.cil
+@@ -102,6 +102,7 @@
+     postinstall_vendor_mnt_dir
+     power_debug_prop
+     powerstats_service
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     proc_kallsyms
+     proc_locks
+diff --git a/prebuilts/api/31.0/private/genfs_contexts b/prebuilts/api/31.0/private/genfs_contexts
+index 733710e31..fa4174bc4 100644
+--- a/prebuilts/api/31.0/private/genfs_contexts
++++ b/prebuilts/api/31.0/private/genfs_contexts
+@@ -27,6 +27,7 @@ genfscon proc /net/tcp u:object_r:proc_net_tcp_udp:s0
+ genfscon proc /net/udp u:object_r:proc_net_tcp_udp:s0
+ genfscon proc /net/xt_qtaguid/ctrl u:object_r:proc_qtaguid_ctrl:s0
+ genfscon proc /net/xt_qtaguid/ u:object_r:proc_qtaguid_stat:s0
++genfscon proc /cpu/alignment u:object_r:proc_cpu_alignment:s0
+ genfscon proc /cpuinfo u:object_r:proc_cpuinfo:s0
+ genfscon proc /pagetypeinfo u:object_r:proc_pagetypeinfo:s0
+ genfscon proc /pressure/cpu u:object_r:proc_pressure_cpu:s0
+diff --git a/prebuilts/api/31.0/public/file.te b/prebuilts/api/31.0/public/file.te
+index 134b3f1f1..9b33d79a4 100644
+--- a/prebuilts/api/31.0/public/file.te
++++ b/prebuilts/api/31.0/public/file.te
+@@ -25,6 +25,7 @@ type proc_asound, fs_type, proc_type;
+ type proc_bootconfig, fs_type, proc_type;
+ type proc_buddyinfo, fs_type, proc_type;
+ type proc_cmdline, fs_type, proc_type;
++type proc_cpu_alignment, fs_type, proc_type;
+ type proc_cpuinfo, fs_type, proc_type;
+ type proc_dirty, fs_type, proc_type;
+ type proc_diskstats, fs_type, proc_type;
+diff --git a/prebuilts/api/31.0/public/init.te b/prebuilts/api/31.0/public/init.te
+index 31bff7487..03da59bb1 100644
+--- a/prebuilts/api/31.0/public/init.te
++++ b/prebuilts/api/31.0/public/init.te
+@@ -370,6 +370,7 @@ allow init {
+ 
+ allow init {
+   proc_abi
++  proc_cpu_alignment
+   proc_dirty
+   proc_hostname
+   proc_hung_task
+diff --git a/prebuilts/api/32.0/private/compat/26.0/26.0.ignore.cil b/prebuilts/api/32.0/private/compat/26.0/26.0.ignore.cil
+index 13ba65c6a..df6566195 100644
+--- a/prebuilts/api/32.0/private/compat/26.0/26.0.ignore.cil
++++ b/prebuilts/api/32.0/private/compat/26.0/26.0.ignore.cil
+@@ -136,6 +136,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     property_info
+     recovery_socket
+diff --git a/prebuilts/api/32.0/private/compat/27.0/27.0.ignore.cil b/prebuilts/api/32.0/private/compat/27.0/27.0.ignore.cil
+index 9154be73a..ef0544084 100644
+--- a/prebuilts/api/32.0/private/compat/27.0/27.0.ignore.cil
++++ b/prebuilts/api/32.0/private/compat/27.0/27.0.ignore.cil
+@@ -151,6 +151,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     property_info
+     property_service_version_prop
+diff --git a/prebuilts/api/32.0/private/compat/28.0/28.0.ignore.cil b/prebuilts/api/32.0/private/compat/28.0/28.0.ignore.cil
+index 64c79da80..124e52466 100644
+--- a/prebuilts/api/32.0/private/compat/28.0/28.0.ignore.cil
++++ b/prebuilts/api/32.0/private/compat/28.0/28.0.ignore.cil
+@@ -109,6 +109,7 @@
+     password_slot_metadata_file
+     permissionmgr_service
+     postinstall_apex_mnt_dir
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     recovery_socket
+     role_service
+diff --git a/prebuilts/api/32.0/private/compat/29.0/29.0.ignore.cil b/prebuilts/api/32.0/private/compat/29.0/29.0.ignore.cil
+index 803fa9d90..ca2da5e62 100644
+--- a/prebuilts/api/32.0/private/compat/29.0/29.0.ignore.cil
++++ b/prebuilts/api/32.0/private/compat/29.0/29.0.ignore.cil
+@@ -88,6 +88,7 @@
+     ota_metadata_file
+     ota_prop
+     prereboot_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     art_apex_dir
+     rebootescrow_hal_prop
+diff --git a/prebuilts/api/32.0/private/compat/30.0/30.0.ignore.cil b/prebuilts/api/32.0/private/compat/30.0/30.0.ignore.cil
+index 0d08e8c26..2c335c78a 100644
+--- a/prebuilts/api/32.0/private/compat/30.0/30.0.ignore.cil
++++ b/prebuilts/api/32.0/private/compat/30.0/30.0.ignore.cil
+@@ -103,6 +103,7 @@
+     postinstall_vendor_mnt_dir
+     power_debug_prop
+     powerstats_service
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     proc_kallsyms
+     proc_locks
+diff --git a/prebuilts/api/32.0/private/genfs_contexts b/prebuilts/api/32.0/private/genfs_contexts
+index 733710e31..fa4174bc4 100644
+--- a/prebuilts/api/32.0/private/genfs_contexts
++++ b/prebuilts/api/32.0/private/genfs_contexts
+@@ -27,6 +27,7 @@ genfscon proc /net/tcp u:object_r:proc_net_tcp_udp:s0
+ genfscon proc /net/udp u:object_r:proc_net_tcp_udp:s0
+ genfscon proc /net/xt_qtaguid/ctrl u:object_r:proc_qtaguid_ctrl:s0
+ genfscon proc /net/xt_qtaguid/ u:object_r:proc_qtaguid_stat:s0
++genfscon proc /cpu/alignment u:object_r:proc_cpu_alignment:s0
+ genfscon proc /cpuinfo u:object_r:proc_cpuinfo:s0
+ genfscon proc /pagetypeinfo u:object_r:proc_pagetypeinfo:s0
+ genfscon proc /pressure/cpu u:object_r:proc_pressure_cpu:s0
+diff --git a/prebuilts/api/32.0/public/file.te b/prebuilts/api/32.0/public/file.te
+index 134b3f1f1..9b33d79a4 100644
+--- a/prebuilts/api/32.0/public/file.te
++++ b/prebuilts/api/32.0/public/file.te
+@@ -25,6 +25,7 @@ type proc_asound, fs_type, proc_type;
+ type proc_bootconfig, fs_type, proc_type;
+ type proc_buddyinfo, fs_type, proc_type;
+ type proc_cmdline, fs_type, proc_type;
++type proc_cpu_alignment, fs_type, proc_type;
+ type proc_cpuinfo, fs_type, proc_type;
+ type proc_dirty, fs_type, proc_type;
+ type proc_diskstats, fs_type, proc_type;
+diff --git a/prebuilts/api/32.0/public/init.te b/prebuilts/api/32.0/public/init.te
+index 31bff7487..03da59bb1 100644
+--- a/prebuilts/api/32.0/public/init.te
++++ b/prebuilts/api/32.0/public/init.te
+@@ -370,6 +370,7 @@ allow init {
+ 
+ allow init {
+   proc_abi
++  proc_cpu_alignment
+   proc_dirty
+   proc_hostname
+   proc_hung_task
+diff --git a/private/compat/26.0/26.0.ignore.cil b/private/compat/26.0/26.0.ignore.cil
+index 13ba65c6a..df6566195 100644
+--- a/private/compat/26.0/26.0.ignore.cil
++++ b/private/compat/26.0/26.0.ignore.cil
+@@ -136,6 +136,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     property_info
+     recovery_socket
+diff --git a/private/compat/27.0/27.0.ignore.cil b/private/compat/27.0/27.0.ignore.cil
+index 9154be73a..ef0544084 100644
+--- a/private/compat/27.0/27.0.ignore.cil
++++ b/private/compat/27.0/27.0.ignore.cil
+@@ -151,6 +151,7 @@
+     perfetto_exec
+     perfetto_tmpfs
+     perfetto_traces_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     property_info
+     property_service_version_prop
+diff --git a/private/compat/28.0/28.0.ignore.cil b/private/compat/28.0/28.0.ignore.cil
+index 64c79da80..124e52466 100644
+--- a/private/compat/28.0/28.0.ignore.cil
++++ b/private/compat/28.0/28.0.ignore.cil
+@@ -109,6 +109,7 @@
+     password_slot_metadata_file
+     permissionmgr_service
+     postinstall_apex_mnt_dir
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     recovery_socket
+     role_service
+diff --git a/private/compat/29.0/29.0.ignore.cil b/private/compat/29.0/29.0.ignore.cil
+index 803fa9d90..ca2da5e62 100644
+--- a/private/compat/29.0/29.0.ignore.cil
++++ b/private/compat/29.0/29.0.ignore.cil
+@@ -88,6 +88,7 @@
+     ota_metadata_file
+     ota_prop
+     prereboot_data_file
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     art_apex_dir
+     rebootescrow_hal_prop
+diff --git a/private/compat/30.0/30.0.ignore.cil b/private/compat/30.0/30.0.ignore.cil
+index 0d08e8c26..2c335c78a 100644
+--- a/private/compat/30.0/30.0.ignore.cil
++++ b/private/compat/30.0/30.0.ignore.cil
+@@ -103,6 +103,7 @@
+     postinstall_vendor_mnt_dir
+     power_debug_prop
+     powerstats_service
++    proc_cpu_alignment
+     proc_dt_firmware_android
+     proc_kallsyms
+     proc_locks
+diff --git a/private/genfs_contexts b/private/genfs_contexts
+index 733710e31..fa4174bc4 100644
+--- a/private/genfs_contexts
++++ b/private/genfs_contexts
+@@ -27,6 +27,7 @@ genfscon proc /net/tcp u:object_r:proc_net_tcp_udp:s0
+ genfscon proc /net/udp u:object_r:proc_net_tcp_udp:s0
+ genfscon proc /net/xt_qtaguid/ctrl u:object_r:proc_qtaguid_ctrl:s0
+ genfscon proc /net/xt_qtaguid/ u:object_r:proc_qtaguid_stat:s0
++genfscon proc /cpu/alignment u:object_r:proc_cpu_alignment:s0
+ genfscon proc /cpuinfo u:object_r:proc_cpuinfo:s0
+ genfscon proc /pagetypeinfo u:object_r:proc_pagetypeinfo:s0
+ genfscon proc /pressure/cpu u:object_r:proc_pressure_cpu:s0
+diff --git a/public/file.te b/public/file.te
+index 134b3f1f1..9b33d79a4 100644
+--- a/public/file.te
++++ b/public/file.te
+@@ -25,6 +25,7 @@ type proc_asound, fs_type, proc_type;
+ type proc_bootconfig, fs_type, proc_type;
+ type proc_buddyinfo, fs_type, proc_type;
+ type proc_cmdline, fs_type, proc_type;
++type proc_cpu_alignment, fs_type, proc_type;
+ type proc_cpuinfo, fs_type, proc_type;
+ type proc_dirty, fs_type, proc_type;
+ type proc_diskstats, fs_type, proc_type;
+diff --git a/public/init.te b/public/init.te
+index 31bff7487..03da59bb1 100644
+--- a/public/init.te
++++ b/public/init.te
+@@ -370,6 +370,7 @@ allow init {
+ 
+ allow init {
+   proc_abi
++  proc_cpu_alignment
+   proc_dirty
+   proc_hostname
+   proc_hung_task
+-- 
+2.35.1
+
